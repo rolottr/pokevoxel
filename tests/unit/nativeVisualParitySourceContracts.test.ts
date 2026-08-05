@@ -40,7 +40,9 @@ describe('compatible-stable native visual parity', () => {
   it('uses stable shadow/reflection inputs and first-person shadow framing', () => {
     const scene = text('runtime', 'mods', 'dramatic-shape', 'lib', 'VoxelScene.lua');
     const voxel = text('runtime', 'mods', 'dramatic-shape', 'lib', 'Voxel3D.lua');
-    expect(scene).toContain('put(math.floor(cx * 4))');
+    const shadow = text('runtime', 'mods', 'dramatic-shape', 'lib', 'ShadowMap.lua');
+    expect(scene).toContain('local fitSig = ShadowMap.prepare(cx, cy, vw, vh)');
+    expect(shadow).toContain('ShadowMap.CACHE_STEP = 128');
     expect(scene).toContain('put(p.facing); put(p.phase); put(p.flip and 1 or 0)');
     expect(scene).toContain('local shadowX, shadowY = FirstPerson.shadowCenter(cx, cy, vh)');
     expect(voxel).toContain('function Voxel3D.beginWater(paint, restoreDepth)');

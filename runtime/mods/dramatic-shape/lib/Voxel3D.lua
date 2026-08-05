@@ -133,6 +133,7 @@ local SHADER = [[
 #endif
 #ifdef PIXEL
   uniform Image sunMap;
+  uniform Image sunCastMap;
   uniform float sunDark;      // how far into black a shadow goes; 0 = off
   uniform float sunBias;
   uniform vec2 sunTexel;
@@ -146,7 +147,12 @@ local SHADER = [[
   }
 
   float sunDepth(vec2 uv) {
-    return shadowDepth(Texel(sunMap, uv));
+    // Static world geometry and moving cards are rasterised separately so a
+    // walking pose cannot invalidate the expensive terrain pass. The nearest
+    // light-space depth is exactly the value a single combined depth buffer
+    // would have retained.
+    return min(shadowDepth(Texel(sunMap, uv)),
+               shadowDepth(Texel(sunCastMap, uv)));
   }
 
   // 1.0 in full sun, 1.0 - sunDark in full shadow. Four taps half a texel
@@ -1052,6 +1058,8 @@ function Voxel3D.beginScene(w, h, cx, cy, vw, vh, sky, slot, readableDepth)
   pcall(sh.send, sh, "sunVP", "row", map and ShadowMap.uvVP or IDENTITY)
   local tex = ShadowMap.texture()
   if tex then pcall(sh.send, sh, "sunMap", tex) end
+  local castTex = ShadowMap.castTexture()
+  if castTex then pcall(sh.send, sh, "sunCastMap", castTex) end
   pcall(sh.send, sh, "sunDark", map and Voxel3D.SHADOW_ALPHA or 0)
   pcall(sh.send, sh, "sunBias", ShadowMap.bias)
   local texel = 1 / ShadowMap.res

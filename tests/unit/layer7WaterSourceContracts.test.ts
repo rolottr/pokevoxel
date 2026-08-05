@@ -65,8 +65,10 @@ describe('Layer 7A water source contracts', () => {
     expect(scene).toContain('screen = { w, h }, cell = Voxel3D.cell');
     expect(scene).toContain('put(p.px); put(p.py); put(p.gh); put(p.lift or 0)');
     expect(scene).toContain('put(p.facing); put(p.phase); put(p.flip and 1 or 0)');
-    expect(scene).toContain('put(math.floor(cx * 4))');
-    expect(scene).toContain('put(math.floor(cy * 4))');
+    const shadow = text('runtime', 'mods', 'dramatic-shape', 'lib', 'ShadowMap.lua');
+    expect(scene).toContain('local fitSig = ShadowMap.prepare(cx, cy, vw, vh)');
+    expect(shadow).toContain('local qx = math.floor(cx / step + 0.5) * step');
+    expect(shadow).toContain('local qy = math.floor(cy / step + 0.5) * step');
     expect(scene).toContain('ChunkMesher.request(state.map, false, masks, true)');
     expect(scene).toContain('ChunkMesher.request(nb.map, true)');
     expect(scene).not.toContain('if needsRing then');

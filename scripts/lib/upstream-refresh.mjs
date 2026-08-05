@@ -19,6 +19,17 @@ export const UPSTREAM_REFRESH_ADDITIONS = Object.freeze([
   Object.freeze({ source: 'gen1recomp', upstreamPath: 'src/core/GamepadMap.lua', status: 'pristine' }),
   Object.freeze({ source: 'gen1recomp', upstreamPath: 'src/core/Orientation.lua', status: 'pristine' }),
   Object.freeze({ source: 'gen1recomp', upstreamPath: 'src/core/Platform.lua', status: 'pristine' }),
+  Object.freeze({ source: 'gen1recomp', upstreamPath: 'src/core/DiscordPresence.lua', status: 'pristine' }),
+  Object.freeze({ source: 'gen1recomp', upstreamPath: 'src/link/CodeEntry.lua', status: 'pristine' }),
+  Object.freeze({ source: 'gen1recomp', upstreamPath: 'src/link/Fingerprint.lua', status: 'pristine' }),
+  Object.freeze({ source: 'gen1recomp', upstreamPath: 'src/link/Handshake.lua', status: 'pristine' }),
+  Object.freeze({ source: 'gen1recomp', upstreamPath: 'src/link/LinkBattle.lua', status: 'pristine' }),
+  Object.freeze({ source: 'gen1recomp', upstreamPath: 'src/link/LinkState.lua', status: 'pristine' }),
+  Object.freeze({ source: 'gen1recomp', upstreamPath: 'src/link/Net.lua', status: 'pristine' }),
+  Object.freeze({ source: 'gen1recomp', upstreamPath: 'src/link/Protocol.lua', status: 'pristine' }),
+  Object.freeze({ source: 'gen1recomp', upstreamPath: 'src/link/Tournament.lua', status: 'pristine' }),
+  Object.freeze({ source: 'gen1recomp', upstreamPath: 'src/mods/ManagerState.lua', status: 'pristine' }),
+  Object.freeze({ source: 'gen1recomp', upstreamPath: 'src/mods/ModProfile.lua', status: 'pristine' }),
 ]);
 
 export function cleanRelative(value, label = 'path') {

@@ -38,6 +38,29 @@ describe('Layer 3 browser runtime source contracts', () => {
     expect(diagnostics).toContain('function SwitchDiagnostics.onJoystickEvent(kind, joystick, button, extra)');
   });
 
+  it('packages the complete built-in mod manager required by F10', () => {
+    const game = text('runtime', 'game', 'src', 'core', 'Game.lua');
+    const screens = text('runtime', 'game', 'src', 'ui', 'Screens.lua');
+    const manager = text('runtime', 'game', 'src', 'mods', 'ManagerState.lua');
+    const profiles = text('runtime', 'game', 'src', 'mods', 'ModProfile.lua');
+    expect(game).toContain('Screens.push(self, "ManagerState")');
+    expect(screens).toContain('ManagerState = "src.mods.ManagerState"');
+    expect(manager).toContain('local ModProfile = require("src.mods.ModProfile")');
+    expect(profiles).toContain('function ModProfile.ensureFirst(opts, available, modOptions)');
+  });
+
+  it('packages the complete built-in link screen exposed by the pause menu', () => {
+    const startMenu = text('runtime', 'game', 'src', 'ui', 'StartMenu.lua');
+    const linkState = text('runtime', 'game', 'src', 'link', 'LinkState.lua');
+    const net = text('runtime', 'game', 'src', 'link', 'Net.lua');
+    const presence = text('runtime', 'game', 'src', 'core', 'DiscordPresence.lua');
+    expect(startMenu).toContain('local LinkState = require("src.link.LinkState")');
+    expect(linkState).toContain('local Net = require("src.link.Net")');
+    expect(linkState).toContain('local DiscordPresence = require("src.core.DiscordPresence")');
+    expect(net).toContain('local hasEnet, enet = pcall(require, "enet")');
+    expect(presence).toContain('local function isDesktop()');
+  });
+
   it('uses an explicit browser frame loop that updates, draws, and presents', () => {
     const main = text('runtime', 'game', 'main.lua');
     expect(main).toMatch(/function love\.run\(\)/);
@@ -49,13 +72,23 @@ describe('Layer 3 browser runtime source contracts', () => {
     expect(main).not.toContain('FrameCap.current');
   });
 
-  it('keeps only the generic Json link module required by import and mod loading', () => {
+  it('keeps the pinned link module closure exposed by the pause menu', () => {
     const links = readdirSync(productPath('runtime', 'game', 'src', 'link')).filter((name) => name.endsWith('.lua'));
-    expect(links).toEqual(['Json.lua']);
+    expect(links).toEqual([
+      'CodeEntry.lua',
+      'Fingerprint.lua',
+      'Handshake.lua',
+      'Json.lua',
+      'LinkBattle.lua',
+      'LinkState.lua',
+      'Net.lua',
+      'Protocol.lua',
+      'Tournament.lua',
+    ]);
   });
 
   it('contains no excluded desktop modules or product runtime paths', () => {
-    const forbidden = /(?:Pisco|VR(?:XR|GL|Rig)?|Horde|DiscordPresence|SaveEditor|NativePicker|Updater)/i;
+    const forbidden = /(?:Pisco|VR(?:XR|GL|Rig)?|Horde|SaveEditor|NativePicker|Updater)/i;
     const files = (directory: string): string[] => readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
       const path = resolve(directory, entry.name);
       return entry.isDirectory() ? files(path) : [path];

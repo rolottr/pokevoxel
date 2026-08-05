@@ -54,6 +54,44 @@ describe('reported browser parity repair', () => {
     expect(water).toContain('max(step(z, shadowDepth(c)), shadowCaster(c))');
   });
 
+  it('memoizes the shadow capability probe instead of resizing the live map every frame', () => {
+    const shadow = text('runtime', 'mods', 'dramatic-shape', 'lib', 'ShadowMap.lua');
+    const available = shadow.slice(
+      shadow.indexOf('function ShadowMap.available()'),
+      shadow.indexOf('function ShadowMap.texture()'),
+    );
+    expect(shadow).toContain('local capability = nil');
+    expect(available).toContain('if capability == nil then');
+    expect(available).toContain('capability = getShader() ~= nil');
+    expect(available.match(/getCanvas\(ShadowMap\.SIZES\[1\]\)/g)).toHaveLength(1);
+    expect(shadow).toMatch(/function ShadowMap\.invalidate\(\)[\s\S]*capability = nil/);
+  });
+
+  it('keeps walking cards out of the cached static shadow pass', () => {
+    const shadow = text('runtime', 'mods', 'dramatic-shape', 'lib', 'ShadowMap.lua');
+    const voxel = text('runtime', 'mods', 'dramatic-shape', 'lib', 'Voxel3D.lua');
+    const scene = text('runtime', 'mods', 'dramatic-shape', 'lib', 'VoxelScene.lua');
+    const staticSignature = scene.slice(
+      scene.indexOf('local function staticShadowSignature'),
+      scene.indexOf('local castSigBuf'),
+    );
+    const castSignature = scene.slice(
+      scene.indexOf('local function castShadowSignature'),
+      scene.indexOf('-- The sun pass:'),
+    );
+
+    expect(shadow).toContain('ShadowMap.CACHE_STEP = 128');
+    expect(shadow).toContain('local castCanvas = nil');
+    expect(shadow).toContain('function ShadowMap.beginStatic()');
+    expect(shadow).toContain('function ShadowMap.beginCast()');
+    expect(staticSignature).not.toContain('posed');
+    expect(staticSignature).not.toContain('p.px');
+    expect(castSignature).toContain('p.px');
+    expect(voxel).toContain('uniform Image sunCastMap;');
+    expect(voxel).toMatch(/return min\(shadowDepth\(Texel\(sunMap, uv\)\),\s*shadowDepth\(Texel\(sunCastMap, uv\)\)\);/);
+    expect(voxel).toContain('"sunCastMap", castTex');
+  });
+
   it('keeps the live canvas and shell decoration hidden until playing and uses the pinned billboard depth bias', () => {
     const css = text('src', 'styles.css');
     const scene = text('runtime', 'mods', 'dramatic-shape', 'lib', 'VoxelScene.lua');

@@ -1,6 +1,11 @@
 import { createRequire } from 'node:module';
 import { expect, test } from './helpers/voxelHarness';
 
+// Trace screenshot capture changes the requestAnimationFrame distribution that
+// this test measures. The ordinary failure screenshot remains enabled.
+const performanceTest = test.extend({});
+performanceTest.use({ trace: 'off' });
+
 type DecodedPng = Readonly<{ width: number; height: number; data: Buffer }>;
 const { PNG } = createRequire(import.meta.url)('playwright-core/lib/utilsBundle') as {
   PNG: { sync: { read(input: Buffer): DecodedPng } };
@@ -12,6 +17,68 @@ const fixtures = [
   ['1', 'PALLET_TOWN'], ['2', 'REDS_HOUSE_1F'],
   ['3', 'VIRIDIAN_FOREST'], ['4', 'ROCK_TUNNEL_1F'],
 ] as const;
+
+async function walkingFrameEvidence(page: import('@playwright/test').Page): Promise<Readonly<{
+  p95: number;
+  longFrames: number;
+}>> {
+  return page.evaluate(async () => {
+    const samples: number[] = [];
+    let before = performance.now();
+    for (let index = 0; index < 180; index += 1) {
+      await new Promise<void>((resolve) => requestAnimationFrame((now) => {
+        samples.push(now - before);
+        before = now;
+        resolve();
+      }));
+    }
+    samples.sort((left, right) => left - right);
+    return {
+      p95: samples[Math.floor(samples.length * 0.95)] ?? Infinity,
+      longFrames: samples.filter((sample) => sample > 25).length,
+    };
+  });
+}
+
+performanceTest('keeps sustained Pallet walking inside the voxel frame budget', async ({ voxel }) => {
+  test.setTimeout(120_000);
+  await voxel.ensureTitle();
+  await voxel.command('1');
+  await expect.poll(() => voxel.probe(), { timeout: 15_000 }).toMatchObject({
+    map: 'PALLET_TOWN', stableFrames: 2, depth: true, npcDepth: true,
+    buildingDepth: true, menus: false, fallback: false,
+  });
+  await voxel.page.waitForTimeout(500);
+
+  const canvas = voxel.page.locator('canvas');
+  await canvas.focus();
+  const walk = async () => {
+    const directions = [
+      'ArrowDown', 'ArrowUp', 'ArrowRight', 'ArrowLeft',
+      'ArrowDown', 'ArrowUp', 'ArrowRight', 'ArrowLeft',
+      'ArrowDown', 'ArrowUp', 'ArrowRight', 'ArrowLeft',
+      'ArrowDown', 'ArrowUp',
+    ];
+    for (const direction of directions) {
+      await voxel.page.keyboard.down(direction);
+      await voxel.page.waitForTimeout(450);
+      await voxel.page.keyboard.up(direction);
+    }
+  };
+  const [evidence] = await Promise.all([walkingFrameEvidence(voxel.page), walk()]);
+  expect(evidence.p95).toBeLessThanOrEqual(25);
+  expect(evidence.longFrames).toBeLessThanOrEqual(9);
+});
+
+test('opens and closes the pinned mod manager with F10 without leaving the overworld runtime', async ({ voxel }) => {
+  test.setTimeout(120_000);
+  await voxel.ensureOverworld();
+  await expect.poll(() => voxel.probe(), { timeout: 15_000 }).toMatchObject({ menus: false, fallback: false });
+  await voxel.command('F10');
+  await expect.poll(() => voxel.probe(), { timeout: 15_000 }).toMatchObject({ menus: true, fallback: false });
+  await voxel.command('F10');
+  await expect.poll(() => voxel.probe(), { timeout: 15_000 }).toMatchObject({ menus: false, fallback: false });
+});
 
 test('renders all representative maps with a real voxel-ready draw and no fallback', async ({ voxel }) => {
   test.setTimeout(180_000);

@@ -814,42 +814,39 @@ end
 -- means the shadow map it produced last frame is still exactly right, and
 -- redrawing the whole world from the sun would buy nothing -- which is
 -- most of a dialog, a menu, or any moment standing still.
-local sigBuf = {}
-local function shadowSignature(terrain, nbMesh, posed, cx, cy, vw, vh)
+local staticSigBuf = {}
+local function staticShadowSignature(terrain, nbMesh, water, nbWater, fitSig)
   local n = 0
   local function put(v)
     n = n + 1
-    sigBuf[n] = v
+    staticSigBuf[n] = v
   end
-  -- The stable light fit follows the camera at quarter-pixel granularity;
-  -- ShadowMap itself snaps the result to its texel grid.
-  put(math.floor(cx * 4))
-  put(math.floor(cy * 4))
-  -- the view size and the camera PITCH are both what the light frustum is
-  -- fitted to (a lower camera sees further north, so the box grows), so a
-  -- zoom step, a window resize or a rung change invalidates the map even
-  -- standing perfectly still
-  put(vw); put(vh)
-  put(math.floor((V.require("VoxelState").angle or 0) * 512))
-  -- the sun itself: the cycle swings the shear as the clock runs, and a map
-  -- lit from somewhere new must be redrawn from there too. Quantised by the
-  -- rig's own step (DayNight.rigTime), so a running cycle redraws the map a
-  -- few times a minute rather than every frame.
-  put(math.floor(ShadowMap.KX * 128))
-  put(math.floor(ShadowMap.KZ * 128))
-  -- and the first-person head: the box is fitted around wherever it looks
-  -- and the sprite cards swap frames as it circles them, so a turn on the
-  -- spot re-fits and redraws exactly like a camera move ("" outside 1ST)
-  put(FirstPerson.signature())
+  put(fitSig)
   put(tostring(terrain))
   for i = 1, #nbMesh do put(tostring(nbMesh[i])) end
+  put(tostring(water))
+  for i = 1, #(nbWater or {}) do put(tostring(nbWater[i])) end
+  for i = n + 1, #staticSigBuf do staticSigBuf[i] = nil end
+  return table.concat(staticSigBuf, ",")
+end
+
+local castSigBuf = {}
+local function castShadowSignature(posed, fitSig, battleToken)
+  local n = 0
+  local function put(v)
+    n = n + 1
+    castSigBuf[n] = v
+  end
+  put(fitSig)
+  put(FirstPerson.signature())
   for _, p in ipairs(posed) do
     put(p.sprite.def.image)
     put(p.px); put(p.py); put(p.gh); put(p.lift or 0)
     put(p.facing); put(p.phase); put(p.flip and 1 or 0)
   end
-  for i = n + 1, #sigBuf do sigBuf[i] = nil end
-  return table.concat(sigBuf, ",")
+  put(battleToken or "")
+  for i = n + 1, #castSigBuf do castSigBuf[i] = nil end
+  return table.concat(castSigBuf, ",")
 end
 
 -- The sun pass: render the scene once from the light, so the main pass can
@@ -866,79 +863,71 @@ end
 local function castShadows(state, terrain, nbMesh, posed, cx, cy, vw, vh,
                            atlasFor, water, nbWater, battleCards, battleToken)
   if not ShadowMap.available() then return end
-  local sig = shadowSignature(terrain, nbMesh, posed, cx, cy, vw, vh)
-  -- a staged fight's pics move every frame the animation does, and the sun
-  -- has to follow them (immersive frames only; see render)
-  if battleToken then sig = sig .. "|btl" .. tostring(battleToken) end
-  if not ShadowMap.stale(sig) then return end
-  if not ShadowMap.begin(cx, cy, vw, vh) then return end
+  local fitSig = ShadowMap.prepare(cx, cy, vw, vh)
+  if not fitSig then return end
 
-  ShadowMap.draw(terrain, atlasFor(state.map), nil)
-  for i, nb in ipairs(state.neighbors or {}) do
-    ShadowMap.draw(nbMesh[i], atlasFor(nb.map),
-                   Mat4.translate(nb.ox, 0, nb.oy))
-  end
-  -- The water surface, which the terrain mesh no longer carries (it is its
-  -- own reflective pass now -- see Water). The sun still has to see it, or
-  -- the map the light records has a hole at every lake and the frustum's
-  -- far plane answers for the surface a shoreline tree's shadow falls on.
-  ShadowMap.draw(water, atlasFor(state.map), nil)
-  for i, nb in ipairs(state.neighbors or {}) do
-    ShadowMap.draw(nbWater and nbWater[i], atlasFor(nb.map),
-                   Mat4.translate(nb.ox, 0, nb.oy))
-  end
-  -- flower billboards live outside the terrain mesh (they draw after the
-  -- characters, pulled -- see render), but the sun still sees them: a
-  -- handful of cutouts per meadow, unlike the grass left out below.
-  -- Every thin card from here down is SNUGGED toward the sun along its own
-  -- ray (ShadowMap.snug) so its shadow keeps contact with its feet instead
-  -- of starting a bias-width away.
-  ShadowMap.draw(ChunkMesher.flowers(state.map), atlasFor(state.map),
-                 ShadowMap.snug(nil))
-  for _, nb in ipairs(state.neighbors or {}) do
-    ShadowMap.draw(ChunkMesher.flowers(nb.map), atlasFor(nb.map),
-                   ShadowMap.snug(Mat4.translate(nb.ox, 0, nb.oy)))
-  end
-  -- From here down it is the CAST, marked as such in the map (see
-  -- ShadowMap.sprites) so water can decline them: everything the world casts
-  -- still shades a lake, a silhouette of somebody standing beside it does
-  -- not. Ground, roofs and the characters themselves take them as before.
-  ShadowMap.sprites(true)
-  -- authored figures cast too, for the same reason the flowers do: a
-  -- handful of cards per map, and a person with no shadow reads as pasted on
-  eachFigure(state.map, 0, 0, function(mesh, _, caster)
-    ShadowMap.draw(mesh, atlasFor(state.map), ShadowMap.snug(caster))
-  end)
-  for _, nb in ipairs(state.neighbors or {}) do
-    eachFigure(nb.map, nb.ox, nb.oy, function(mesh, _, caster)
-      ShadowMap.draw(mesh, atlasFor(nb.map), ShadowMap.snug(caster))
-    end)
-  end
-  for _, p in ipairs(posed) do
-    local def = p.sprite.def
-    -- viewFacing, exactly as the camera draw picks it (see viewFacing for
-    -- why the two passes must agree): in first person the sun's card
-    -- swaps frame as the eye circles, which costs a redraw the signature
-    -- already charges for (FirstPerson.signature) and keeps a card from
-    -- fringing against a mirror-flipped record of itself
-    local frame, mirror = frameFor(def, viewFacing(p), p.phase, p.flip)
-    local mesh = SpriteBillboards.shadowQuad(def, frame)
-    if mesh then
-      ShadowMap.draw(mesh, p.sprite:resolveImage(),
-                     ShadowMap.snug(
-                       Voxel3D.casterMatrix(p.px, p.py, p.gh + (p.lift or 0),
-                                            mirror)))
+  local staticSig = staticShadowSignature(
+    terrain, nbMesh, water, nbWater, fitSig)
+  if ShadowMap.staticStale(staticSig) then
+    if not ShadowMap.beginStatic() then return end
+    ShadowMap.draw(terrain, atlasFor(state.map), nil)
+    for i, nb in ipairs(state.neighbors or {}) do
+      ShadowMap.draw(nbMesh[i], atlasFor(nb.map),
+                     Mat4.translate(nb.ox, 0, nb.oy))
     end
+    -- Water and flowers are independent meshes but fixed world geometry.
+    ShadowMap.draw(water, atlasFor(state.map), nil)
+    for i, nb in ipairs(state.neighbors or {}) do
+      ShadowMap.draw(nbWater and nbWater[i], atlasFor(nb.map),
+                     Mat4.translate(nb.ox, 0, nb.oy))
+    end
+    ShadowMap.draw(ChunkMesher.flowers(state.map), atlasFor(state.map),
+                   ShadowMap.snug(nil))
+    for _, nb in ipairs(state.neighbors or {}) do
+      ShadowMap.draw(ChunkMesher.flowers(nb.map), atlasFor(nb.map),
+                     ShadowMap.snug(Mat4.translate(nb.ox, 0, nb.oy)))
+    end
+    -- Authored figures do not animate or travel, so retain them with the
+    -- static world while preserving their caster marker for water.
+    ShadowMap.sprites(true)
+    eachFigure(state.map, 0, 0, function(mesh, _, caster)
+      ShadowMap.draw(mesh, atlasFor(state.map), ShadowMap.snug(caster))
+    end)
+    for _, nb in ipairs(state.neighbors or {}) do
+      eachFigure(nb.map, nb.ox, nb.oy, function(mesh, _, caster)
+        ShadowMap.draw(mesh, atlasFor(nb.map), ShadowMap.snug(caster))
+      end)
+    end
+    ShadowMap.sprites(false)
+    ShadowMap.finish(staticSig)
   end
-  -- a staged fight's mons (immersive frames only): the same cards the eye pass
-  -- stands on the arena, snugged like every thin card, marked as the cast
-  -- so the water can decline them like everybody else's silhouette
-  for _, card in ipairs(battleCards or {}) do
-    ShadowMap.draw(BattleBillboard.mesh(), card.tex, ShadowMap.snug(card.model))
-  end
-  ShadowMap.sprites(false)
 
-  ShadowMap.finish(sig)
+  local castSig = castShadowSignature(posed, fitSig, battleToken)
+  if ShadowMap.castStale(castSig) then
+    if not ShadowMap.beginCast() then return end
+    ShadowMap.sprites(true)
+    for _, p in ipairs(posed) do
+      local def = p.sprite.def
+      -- viewFacing, exactly as the camera draw picks it (see viewFacing for
+      -- why the two passes must agree): in first person the sun's card swaps
+      -- frame as the eye circles without invalidating the terrain half.
+      local frame, mirror = frameFor(def, viewFacing(p), p.phase, p.flip)
+      local mesh = SpriteBillboards.shadowQuad(def, frame)
+      if mesh then
+        ShadowMap.draw(mesh, p.sprite:resolveImage(),
+                       ShadowMap.snug(
+                         Voxel3D.casterMatrix(
+                           p.px, p.py, p.gh + (p.lift or 0), mirror)))
+      end
+    end
+    -- A staged fight's moving cards share the cheap cast half.
+    for _, card in ipairs(battleCards or {}) do
+      ShadowMap.draw(BattleBillboard.mesh(), card.tex,
+                     ShadowMap.snug(card.model))
+    end
+    ShadowMap.sprites(false)
+    ShadowMap.finish(castSig)
+  end
 end
 
 -- Render the world. Without `eyes`, one frame into one canvas -- the flat

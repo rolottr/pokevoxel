@@ -68,6 +68,14 @@ ShadowMap.SIZES = { 1024, 1536, 2048 }
 ShadowMap.TARGET = 0.45
 ShadowMap.res = 1024      -- the rung in use; read by the main pass's filter
 
+-- Keep the light frustum fixed while the camera crosses one eight-tile page.
+-- The half-step padding below still covers every point the unquantised view
+-- could see. Static geometry can therefore retain its exact light-space depth
+-- through ordinary Pallet traversal instead of re-rasterising the whole map
+-- at every tile boundary. Moving cards use their own map below, so their
+-- shadows still advance every frame inside this stable world-space page.
+ShadowMap.CACHE_STEP = 128
+
 -- The tallest geometry the pass covers: gabled buildings and border forest
 -- run well under this, and the margin it buys costs only resolution --
 -- with the sun this low the frustum has to widen by most of HEIGHT again
@@ -155,11 +163,13 @@ ShadowMap._source = function() return SHADER end   -- named for the suite
 
 local shader = nil            -- nil = untried, false = unavailable
 local canvas = nil            -- nil = untried, false = unavailable
+local castCanvas = nil        -- moving cards, sampled beside the static map
 local canvasRes = 0           -- the edge `canvas` was made at
 local blank = nil             -- 1x1 stand-in so the sampler is never unbound
-local drawing = false
-local ready = false
-local lastSig = nil
+local capability = nil        -- probe once; never resize a live map to re-probe
+local drawing = nil           -- nil, "static", or "cast"
+local staticReady, castReady = false, false
+local lastStaticSig, lastCastSig = nil, nil
 local prevBlend, prevAlphaMode = nil, nil
 
 local IDENTITY = Mat4.identity()
@@ -191,20 +201,28 @@ end
 -- one at all is not asked again every frame.
 local function getCanvas(res)
   if canvas == false then return nil end
-  if canvas and canvasRes == res then return canvas end
+  if canvas and castCanvas and canvasRes == res then return canvas end
   local ok, c = pcall(love.graphics.newCanvas, res, res,
                       { format = "rgba4", dpiscale = 1 })
-  if not (ok and c) then
+  local castOk, cast = pcall(love.graphics.newCanvas, res, res,
+                             { format = "rgba4", dpiscale = 1 })
+  if not (ok and c and castOk and cast) then
+    if ok and c and c.release then pcall(c.release, c) end
+    if castOk and cast and cast.release then pcall(cast.release, cast) end
     canvas = false
+    castCanvas = false
     return nil
   end
   -- nearest: the 2x2 filter in the main pass wants raw texels, and a
   -- linearly blended PACKED depth is not a depth at all
   c:setFilter("nearest", "nearest")
+  cast:setFilter("nearest", "nearest")
   pcall(c.setWrap, c, "clamp", "clamp")
+  pcall(cast.setWrap, cast, "clamp", "clamp")
   if canvas and canvas.release then pcall(canvas.release, canvas) end
-  canvas, canvasRes = c, res
-  ready = false
+  if castCanvas and castCanvas.release then pcall(castCanvas.release, castCanvas) end
+  canvas, castCanvas, canvasRes = c, cast, res
+  staticReady, castReady = false, false
   return canvas
 end
 
@@ -235,22 +253,40 @@ function ShadowMap.available()
           and love.graphics.setDepthMode) then
     return false
   end
-  -- the smallest rung is enough to answer the question; fit() picks the
-  -- one this frame actually wants
-  return getShader() ~= nil and getCanvas(ShadowMap.SIZES[1]) ~= nil
+  -- The smallest rung is enough to answer the question, but only ONCE.
+  -- Calling getCanvas(1024) on every frame used to resize a live 1536/2048
+  -- shadow map back to the probe rung; begin() immediately resized it up
+  -- again, invalidating the cache and reallocating two GPU canvases per
+  -- frame. Capability cannot change until invalidate() drops the graphics
+  -- objects, so retain the result exactly like Voxel3D's depth probe does.
+  if capability == nil then
+    capability = getShader() ~= nil
+      and getCanvas(ShadowMap.SIZES[1]) ~= nil
+  end
+  return capability
 end
 
 -- The map to sample, or the blank stand-in. Never nil once the main pass
 -- has a shader at all, because an unbound sampler is a driver-dependent
 -- crash rather than a driver-dependent fallback.
 function ShadowMap.texture()
-  if ready and canvas then return canvas end
+  if staticReady and canvas then return canvas end
+  return getBlank()
+end
+
+-- The cast map contains only moving character/battle cards. Sampling it next
+-- to the static map is equivalent to taking the nearest light-space depth in
+-- one combined pass, but updating it never resubmits buildings or terrain.
+function ShadowMap.castTexture()
+  if castReady and castCanvas then return castCanvas end
   return getBlank()
 end
 
 -- True while the map holds a frame the main pass can read.
 function ShadowMap.active()
-  return ready and canvas ~= nil and canvas ~= false
+  return staticReady and castReady
+    and canvas ~= nil and canvas ~= false
+    and castCanvas ~= nil and castCanvas ~= false
 end
 
 -- The direction the light TRAVELS, normalized. The shear is the shadow a
@@ -301,7 +337,7 @@ end
 -- continuously with the camera reprojects every shadow edge a fraction of a
 -- texel every frame and the whole world's shadows crawl and shimmer while
 -- you walk.
-local function fit(cx, cy, vw, vh)
+local function fit(cx, cy, vw, vh, pad)
   local f = sunDir()
   local view = Mat4.lookAt({ 0, 0, 0 }, f, { 0, 0, -1 })
 
@@ -312,9 +348,10 @@ local function fit(cx, cy, vw, vh)
   -- near ground does; half the depth is a serviceable stand-in for the
   -- frustum's true spread and costs a good deal less resolution
   local spread = north * 0.5
-  local xs = { cx - vw / 2 - spread, cx + vw / 2 + spread + reach }
+  local xs = { cx - vw / 2 - spread - pad,
+               cx + vw / 2 + spread + reach + pad }
   local ys = { -32, ShadowMap.HEIGHT }         -- -32 covers recessed water
-  local zs = { cy - north, cy + vh / 2 + reach }
+  local zs = { cy - north - pad, cy + vh / 2 + reach + pad }
 
   local l, r, b, t, zn, zf
   for _, x in ipairs(xs) do
@@ -378,6 +415,20 @@ local function fit(cx, cy, vw, vh)
   ShadowMap.bias = ShadowMap.slack / math.max(1, far - near)
 end
 
+-- Establish the one light-space frame both static and moving casters use.
+-- Returns a semantic fit token for the caller's cache signatures.
+function ShadowMap.prepare(cx, cy, vw, vh)
+  local step = ShadowMap.CACHE_STEP
+  local qx = math.floor(cx / step + 0.5) * step
+  local qy = math.floor(cy / step + 0.5) * step
+  fit(qx, qy, vw, vh, step * 0.5)
+  if not getCanvas(ShadowMap.res) then return nil end
+  return table.concat({ qx, qy, vw, vh,
+    math.floor((Voxel.angle or 0) * 512),
+    math.floor(ShadowMap.KX * 128), math.floor(ShadowMap.KZ * 128),
+    ShadowMap.res }, ",")
+end
+
 -- How much of the compare's forgiveness a snugged caster takes back, 0..1.
 -- Short of 1 on purpose: at exactly 1 the card's own fragments compare
 -- against their own stored depth on a float-equality knife edge and can
@@ -427,20 +478,22 @@ end
 -- everything the pass depends on (camera, terrain meshes, every pose). A
 -- frame that changes none of it reuses the map it already has, which is
 -- most of a dialog, a menu or any moment standing still.
-function ShadowMap.stale(sig)
-  return not ready or sig ~= lastSig
+function ShadowMap.staticStale(sig)
+  return not staticReady or sig ~= lastStaticSig
 end
 
--- Begin the sun pass. Returns false when it could not start, in which case
--- the caller must not draw into it or call finish.
-function ShadowMap.begin(cx, cy, vw, vh)
+function ShadowMap.castStale(sig)
+  return not castReady or sig ~= lastCastSig
+end
+
+-- Begin one half of the sun pass. Both canvases use the same lightVP and
+-- resolution; the scene shader combines their nearest packed depth.
+local function begin(target, kind)
   local sh = getShader()
   if not sh then return false end
-  -- fit first: it is what decides which resolution rung this view wants
-  fit(cx, cy, vw, vh)
-  local c = getCanvas(ShadowMap.res)
-  if not c then return false end
-  local ok = pcall(love.graphics.setCanvas, { c, depth = true })
+  if not target then return false end
+  if kind == "static" then staticReady = false else castReady = false end
+  local ok = pcall(love.graphics.setCanvas, { target, depth = true })
   if not ok then
     pcall(love.graphics.setCanvas)
     return false
@@ -459,9 +512,17 @@ function ShadowMap.begin(cx, cy, vw, vh)
   -- the world until a cast pass says otherwise, reset per pass so one that
   -- forgot to put it back cannot leak into the next map's terrain
   pcall(sh.send, sh, "sprite", 0)
-  drawing = true
-  ready = false
+  drawing = kind
   return true
+end
+
+
+function ShadowMap.beginStatic()
+  return begin(canvas, "static")
+end
+
+function ShadowMap.beginCast()
+  return begin(castCanvas, "cast")
 end
 
 -- Draw one caster. Same signature as Voxel3D.draw minus the camera-ward
@@ -499,23 +560,30 @@ function ShadowMap.draw(mesh, texture, model)
   return pcall(function() love.graphics.draw(mesh) end)
 end
 
--- Close the pass and stamp it with the signature it was drawn for.
+-- Close one pass and stamp only the half it updated.
 function ShadowMap.finish(sig)
   if not drawing then return end
+  local kind = drawing
   drawing = false
   love.graphics.setShader()
   love.graphics.setDepthMode()
   love.graphics.setCanvas()
   love.graphics.setBlendMode(prevBlend or "alpha", prevAlphaMode)
   love.graphics.setColor(1, 1, 1, 1)
-  lastSig = sig
-  ready = true
+  if kind == "static" then
+    lastStaticSig, staticReady = sig, true
+  else
+    lastCastSig, castReady = sig, true
+  end
 end
 
 -- Drop the GPU objects (window resize, hot reload).
 function ShadowMap.invalidate()
-  canvas, canvasRes, blank = nil, 0, nil
-  drawing, ready, lastSig = false, false, nil
+  canvas, castCanvas, canvasRes, blank = nil, nil, 0, nil
+  capability = nil
+  drawing = nil
+  staticReady, castReady = false, false
+  lastStaticSig, lastCastSig = nil, nil
 end
 
 return ShadowMap

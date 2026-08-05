@@ -301,61 +301,62 @@ end
 -- -- goes in the signature; the terrain half of the answer would otherwise
 -- keep a stale pass alive and freeze the shadows in whatever pose they were
 -- first drawn in.
-local function shadowSignature(state, arena, terrain, nbMesh, token)
+local function staticShadowSignature(state, arena, terrain, nbMesh, water,
+                                    nbWater, fitSig)
   local host = arena.map or state.map
   local parts = { "battle", host.id, arena.x, arena.y, arena.shape,
-                  tostring(terrain), tostring(token or 0),
-                  -- the cycle keeps running through a fight, and an arena lit
-                  -- from somewhere new must be re-cast from there
-                  math.floor(ShadowMap.KX * 128),
-                  math.floor(ShadowMap.KZ * 128) }
+                  tostring(terrain), tostring(water), fitSig }
   for i = 1, #nbMesh do parts[#parts + 1] = tostring(nbMesh[i]) end
+  for i = 1, #(nbWater or {}) do
+    parts[#parts + 1] = tostring(nbWater[i])
+  end
   return table.concat(parts, ",")
+end
+
+local function castShadowSignature(token, fitSig)
+  return table.concat({ "battle-cast", fitSig, tostring(token or 0) }, ",")
 end
 
 local function castShadows(state, arena, terrain, nbMesh, cx, cy, vw, vh,
                            atlasFor, cards, token, host, neighbors,
                            water, nbWater)
   if not ShadowMap.available() then return end
-  local sig = shadowSignature(state, arena, terrain, nbMesh, token)
-  if not ShadowMap.stale(sig) then return end
-  if not ShadowMap.begin(cx, cy, vw, vh) then return end
+  local fitSig = ShadowMap.prepare(cx, cy, vw, vh)
+  if not fitSig then return end
+  local staticSig = staticShadowSignature(
+    state, arena, terrain, nbMesh, water, nbWater, fitSig)
+  if ShadowMap.staticStale(staticSig) then
+    if not ShadowMap.beginStatic() then return end
+    ShadowMap.draw(terrain, atlasFor(host), nil)
+    for i, nb in ipairs(neighbors) do
+      ShadowMap.draw(nbMesh[i], atlasFor(nb.map),
+                     Mat4.translate(nb.ox, 0, nb.oy))
+    end
+    ShadowMap.draw(water, atlasFor(host), nil)
+    for i, nb in ipairs(neighbors) do
+      ShadowMap.draw(nbWater and nbWater[i], atlasFor(nb.map),
+                     Mat4.translate(nb.ox, 0, nb.oy))
+    end
+    ShadowMap.draw(ChunkMesher.flowers(host), atlasFor(host),
+                   ShadowMap.snug(nil))
+    for _, nb in ipairs(neighbors) do
+      ShadowMap.draw(ChunkMesher.flowers(nb.map), atlasFor(nb.map),
+                     ShadowMap.snug(Mat4.translate(nb.ox, 0, nb.oy)))
+    end
+    ShadowMap.finish(staticSig)
+  end
 
-  ShadowMap.draw(terrain, atlasFor(host), nil)
-  for i, nb in ipairs(neighbors) do
-    ShadowMap.draw(nbMesh[i], atlasFor(nb.map), Mat4.translate(nb.ox, 0, nb.oy))
+  local castSig = castShadowSignature(token, fitSig)
+  if ShadowMap.castStale(castSig) then
+    if not ShadowMap.beginCast() then return end
+    ShadowMap.sprites(true)
+    for _, card in ipairs(cards or {}) do
+      ShadowMap.draw(BattleBillboard.mesh(), card.tex,
+                     ShadowMap.snug(card.model))
+    end
+    ShadowMap.sprites(false)
+    ShadowMap.finish(castSig)
   end
-  -- the water surface is its own reflective pass now (see Water) and so is
-  -- no longer inside the terrain mesh; the sun still has to see it, or the
-  -- light's map has a hole at every lake
-  ShadowMap.draw(water, atlasFor(host), nil)
-  for i, nb in ipairs(neighbors) do
-    ShadowMap.draw(nbWater and nbWater[i], atlasFor(nb.map),
-                   Mat4.translate(nb.ox, 0, nb.oy))
-  end
-  -- thin cards are snugged toward the sun (ShadowMap.snug) so their shadows
-  -- keep contact with their bases instead of starting a bias-width away
-  ShadowMap.draw(ChunkMesher.flowers(host), atlasFor(host),
-                 ShadowMap.snug(nil))
-  for _, nb in ipairs(neighbors) do
-    ShadowMap.draw(ChunkMesher.flowers(nb.map), atlasFor(nb.map),
-                   ShadowMap.snug(Mat4.translate(nb.ox, 0, nb.oy)))
-  end
-
-  -- the mons themselves, as the same cards the camera will see. Their alpha
-  -- is the silhouette, so what lands on the ground is the shape of the
-  -- Pokemon rather than a blob standing in for one.
-  -- marked as the CAST, so a fight staged at the water's edge does not lay a
-  -- cut-out of a Pokemon across the lake (see ShadowMap.sprites); the arena's
-  -- own floor still takes them, which is the shadow that matters here
-  ShadowMap.sprites(true)
-  for _, card in ipairs(cards or {}) do
-    ShadowMap.draw(BattleBillboard.mesh(), card.tex,
-                   ShadowMap.snug(card.model))
-  end
-  ShadowMap.sprites(false)
-
-  ShadowMap.finish(sig)
 end
 
 -- The height of the arena floor: the ground the two mons stand on. Both

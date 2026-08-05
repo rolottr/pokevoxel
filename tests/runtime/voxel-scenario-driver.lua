@@ -200,7 +200,21 @@ local function palletOcclusionProjection(entity)
   local x, y, scale = Voxel3D.project(entity.px + 8, ground, entity.py + 8)
   assert(x and y and scale, "Pallet occlusion anchor is behind the camera")
   local card = math.max(8, 16 * (Voxel3D.cell or 1) * scale)
-  return x, y, card, VoxelState.angle, Voxel3D.depthPacked()
+  -- depthPacked() intentionally describes only an ACTIVE render pass. This
+  -- command runs between frames, after endScene(), so asking that public
+  -- function always returned false even when the retained world slot was the
+  -- packed fallback. Read the same closed-over `held` record in this
+  -- disposable driver instead; no production diagnostic API is added.
+  local packed = false
+  for index = 1, 32 do
+    local name, value = debug.getupvalue(Voxel3D.depthPacked, index)
+    if not name then break end
+    if name == "held" then
+      packed = value and value.packedDepth == true or false
+      break
+    end
+  end
+  return x, y, card, VoxelState.angle, packed
 end
 
 local function emitPalletOcclusionProbe(entity, hidden)

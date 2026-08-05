@@ -6417,7 +6417,6 @@ gen1recomp	scripts/xbox-uwp/selftest_build_xbox_uwp.sh	non-runtime platform, tes
 gen1recomp	scripts/xbox-uwp/stage_release.ps1	non-runtime platform, test, documentation, mod, tool, or launcher asset
 gen1recomp	scripts/xbox-uwp/verify_dependencies.ps1	non-runtime platform, test, documentation, mod, tool, or launcher asset
 gen1recomp	scripts/xbox-uwp/write_build_info.sh	non-runtime platform, test, documentation, mod, tool, or launcher asset
-gen1recomp	src/core/DiscordPresence.lua	desktop/Discord integration excluded
 gen1recomp	src/core/HostShell.lua	desktop/Discord integration excluded
 gen1recomp	src/core/LaunchOptions.lua	non-runtime platform, test, documentation, mod, tool, or launcher asset
 gen1recomp	src/core/NxAssetOverlay.lua	non-runtime platform, test, documentation, mod, tool, or launcher asset
@@ -6428,18 +6427,8 @@ gen1recomp	src/import/LauncherSettings.lua	save-editor or native launcher surfac
 gen1recomp	src/import/LauncherView.lua	save-editor or native launcher surface excluded
 gen1recomp	src/import/RomImporter.lua	contains an excluded desktop/demo feature reference; retained functionality requires a later browser-owned patch
 gen1recomp	src/import/SaveFileIO.lua	launcher/native save import-export glue depends on excluded save_convert
-gen1recomp	src/link/CodeEntry.lua	link-play feature excluded; only generic Json.lua retained
-gen1recomp	src/link/Fingerprint.lua	link-play feature excluded; only generic Json.lua retained
-gen1recomp	src/link/Handshake.lua	link-play feature excluded; only generic Json.lua retained
-gen1recomp	src/link/LinkBattle.lua	link-play feature excluded; only generic Json.lua retained
-gen1recomp	src/link/LinkState.lua	link-play feature excluded; only generic Json.lua retained
-gen1recomp	src/link/Net.lua	link-play feature excluded; only generic Json.lua retained
-gen1recomp	src/link/Protocol.lua	link-play feature excluded; only generic Json.lua retained
-gen1recomp	src/link/Tournament.lua	link-play feature excluded; only generic Json.lua retained
 gen1recomp	src/mods/LauncherMods.lua	general mod store/installer/update UI excluded
-gen1recomp	src/mods/ManagerState.lua	general mod store/installer/update UI excluded
 gen1recomp	src/mods/ModIndex.lua	general mod store/installer/update UI excluded
-gen1recomp	src/mods/ModProfile.lua	general mod store/installer/update UI excluded
 gen1recomp	src/mods/ModUpdate.lua	general mod store/installer/update UI excluded
 gen1recomp	src/net/fetch_worker.lua	non-runtime platform, test, documentation, mod, tool, or launcher asset
 gen1recomp	src/net/Fetch.lua	non-runtime platform, test, documentation, mod, tool, or launcher asset

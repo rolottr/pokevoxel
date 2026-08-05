@@ -1982,6 +1982,19 @@
     {
       "source": "gen1recomp",
       "sourceId": "gen1recomp",
+      "upstreamPath": "src/core/DiscordPresence.lua",
+      "path": "src/core/DiscordPresence.lua",
+      "productPath": "runtime/game/src/core/DiscordPresence.lua",
+      "destination": "runtime/game/src/core/DiscordPresence.lua",
+      "upstreamBlob": "56679edb8a1e3153920318132907cdd62294fcbc",
+      "blob": "56679edb8a1e3153920318132907cdd62294fcbc",
+      "localSha256": "5e612579cde6931fa4951a6741acc09ffc6a74d355a4195f632ea6310084c79c",
+      "sha256": "5e612579cde6931fa4951a6741acc09ffc6a74d355a4195f632ea6310084c79c",
+      "status": "pristine"
+    },
+    {
+      "source": "gen1recomp",
+      "sourceId": "gen1recomp",
       "upstreamPath": "src/core/FaithfulRes.lua",
       "path": "src/core/FaithfulRes.lua",
       "productPath": "runtime/game/src/core/FaithfulRes.lua",
@@ -2424,6 +2437,45 @@
     {
       "source": "gen1recomp",
       "sourceId": "gen1recomp",
+      "upstreamPath": "src/link/CodeEntry.lua",
+      "path": "src/link/CodeEntry.lua",
+      "productPath": "runtime/game/src/link/CodeEntry.lua",
+      "destination": "runtime/game/src/link/CodeEntry.lua",
+      "upstreamBlob": "f0335662a16bf2f634a9c161112b5ebcbfde7256",
+      "blob": "f0335662a16bf2f634a9c161112b5ebcbfde7256",
+      "localSha256": "95c8d6e42d7b5da81b64ac11a2e051817df6828ed1c453df3be5a463009fc8f0",
+      "sha256": "95c8d6e42d7b5da81b64ac11a2e051817df6828ed1c453df3be5a463009fc8f0",
+      "status": "pristine"
+    },
+    {
+      "source": "gen1recomp",
+      "sourceId": "gen1recomp",
+      "upstreamPath": "src/link/Fingerprint.lua",
+      "path": "src/link/Fingerprint.lua",
+      "productPath": "runtime/game/src/link/Fingerprint.lua",
+      "destination": "runtime/game/src/link/Fingerprint.lua",
+      "upstreamBlob": "699eb68efa390fd5c79412aafd7f0060478d266e",
+      "blob": "699eb68efa390fd5c79412aafd7f0060478d266e",
+      "localSha256": "9fe9abac01cc395364d4108e201acdbf07fd87dcc7e1a880dc14ec89b3226be7",
+      "sha256": "9fe9abac01cc395364d4108e201acdbf07fd87dcc7e1a880dc14ec89b3226be7",
+      "status": "pristine"
+    },
+    {
+      "source": "gen1recomp",
+      "sourceId": "gen1recomp",
+      "upstreamPath": "src/link/Handshake.lua",
+      "path": "src/link/Handshake.lua",
+      "productPath": "runtime/game/src/link/Handshake.lua",
+      "destination": "runtime/game/src/link/Handshake.lua",
+      "upstreamBlob": "710ad5c83c8116cf74d4178894864041e4875cae",
+      "blob": "710ad5c83c8116cf74d4178894864041e4875cae",
+      "localSha256": "2c70a7d2d9aad7e0f43a63e9afda3e0ee80cf3e75a6f75e75ba191110145f9ad",
+      "sha256": "2c70a7d2d9aad7e0f43a63e9afda3e0ee80cf3e75a6f75e75ba191110145f9ad",
+      "status": "pristine"
+    },
+    {
+      "source": "gen1recomp",
+      "sourceId": "gen1recomp",
       "upstreamPath": "src/link/Json.lua",
       "path": "src/link/Json.lua",
       "productPath": "runtime/game/src/link/Json.lua",
@@ -2432,6 +2484,71 @@
       "blob": "9ddb2e30495e9618e218ffaed140474d7fd7c953",
       "localSha256": "5b1662cc46508ad28f5fe8768e322b4a898caadb74711f5fcd880377dcd2d79c",
       "sha256": "5b1662cc46508ad28f5fe8768e322b4a898caadb74711f5fcd880377dcd2d79c",
+      "status": "pristine"
+    },
+    {
+      "source": "gen1recomp",
+      "sourceId": "gen1recomp",
+      "upstreamPath": "src/link/LinkBattle.lua",
+      "path": "src/link/LinkBattle.lua",
+      "productPath": "runtime/game/src/link/LinkBattle.lua",
+      "destination": "runtime/game/src/link/LinkBattle.lua",
+      "upstreamBlob": "99e36aef4fc690ded4b0debdf9d1f74a4401757a",
+      "blob": "99e36aef4fc690ded4b0debdf9d1f74a4401757a",
+      "localSha256": "a2fc525092d32b0fd14e118d6ba9b1a771bc383c65f50e66f05fbe830eae99b4",
+      "sha256": "a2fc525092d32b0fd14e118d6ba9b1a771bc383c65f50e66f05fbe830eae99b4",
+      "status": "pristine"
+    },
+    {
+      "source": "gen1recomp",
+      "sourceId": "gen1recomp",
+      "upstreamPath": "src/link/LinkState.lua",
+      "path": "src/link/LinkState.lua",
+      "productPath": "runtime/game/src/link/LinkState.lua",
+      "destination": "runtime/game/src/link/LinkState.lua",
+      "upstreamBlob": "4e97133efb28da9fe8c89ecaabf537c9fd6ca960",
+      "blob": "4e97133efb28da9fe8c89ecaabf537c9fd6ca960",
+      "localSha256": "d8640892e635ca2a77ad6a2aa250853bbebd3056a0e04462cc3cc3c7b26c1756",
+      "sha256": "d8640892e635ca2a77ad6a2aa250853bbebd3056a0e04462cc3cc3c7b26c1756",
+      "status": "pristine"
+    },
+    {
+      "source": "gen1recomp",
+      "sourceId": "gen1recomp",
+      "upstreamPath": "src/link/Net.lua",
+      "path": "src/link/Net.lua",
+      "productPath": "runtime/game/src/link/Net.lua",
+      "destination": "runtime/game/src/link/Net.lua",
+      "upstreamBlob": "950bee1e015f6e4e77943825ced53f859221027a",
+      "blob": "950bee1e015f6e4e77943825ced53f859221027a",
+      "localSha256": "93a508597a331c660c887a5d52c0342f01aaff8c6823773d48cae9bc47dad616",
+      "sha256": "93a508597a331c660c887a5d52c0342f01aaff8c6823773d48cae9bc47dad616",
+      "status": "pristine"
+    },
+    {
+      "source": "gen1recomp",
+      "sourceId": "gen1recomp",
+      "upstreamPath": "src/link/Protocol.lua",
+      "path": "src/link/Protocol.lua",
+      "productPath": "runtime/game/src/link/Protocol.lua",
+      "destination": "runtime/game/src/link/Protocol.lua",
+      "upstreamBlob": "fac1c453eb28a3b57fe97bf94c3aafcc29c06092",
+      "blob": "fac1c453eb28a3b57fe97bf94c3aafcc29c06092",
+      "localSha256": "dbd58e591af68fa93720c4f7000b3c2ff38a889ad287e1f4090d5856ebbf7ba6",
+      "sha256": "dbd58e591af68fa93720c4f7000b3c2ff38a889ad287e1f4090d5856ebbf7ba6",
+      "status": "pristine"
+    },
+    {
+      "source": "gen1recomp",
+      "sourceId": "gen1recomp",
+      "upstreamPath": "src/link/Tournament.lua",
+      "path": "src/link/Tournament.lua",
+      "productPath": "runtime/game/src/link/Tournament.lua",
+      "destination": "runtime/game/src/link/Tournament.lua",
+      "upstreamBlob": "cfe663f44b8a0860cbac5017588b51b4bb432cef",
+      "blob": "cfe663f44b8a0860cbac5017588b51b4bb432cef",
+      "localSha256": "0752e6b1b40bbbfdfce6b640c3f575c9a3ed7b4988ed05333bdc7ee5e41aa9c8",
+      "sha256": "0752e6b1b40bbbfdfce6b640c3f575c9a3ed7b4988ed05333bdc7ee5e41aa9c8",
       "status": "pristine"
     },
     {
@@ -2502,6 +2619,19 @@
     {
       "source": "gen1recomp",
       "sourceId": "gen1recomp",
+      "upstreamPath": "src/mods/ManagerState.lua",
+      "path": "src/mods/ManagerState.lua",
+      "productPath": "runtime/game/src/mods/ManagerState.lua",
+      "destination": "runtime/game/src/mods/ManagerState.lua",
+      "upstreamBlob": "945b7adc931690ff86be7d0fdd24bf9e7ca227bb",
+      "blob": "945b7adc931690ff86be7d0fdd24bf9e7ca227bb",
+      "localSha256": "7af39bfed7c1b28b75ba64f776e63e294e594672f7e5b2f505c89bc698f5d7ea",
+      "sha256": "7af39bfed7c1b28b75ba64f776e63e294e594672f7e5b2f505c89bc698f5d7ea",
+      "status": "pristine"
+    },
+    {
+      "source": "gen1recomp",
+      "sourceId": "gen1recomp",
       "upstreamPath": "src/mods/Manifest.lua",
       "path": "src/mods/Manifest.lua",
       "productPath": "runtime/game/src/mods/Manifest.lua",
@@ -2523,6 +2653,19 @@
       "blob": "5c82ed9e2dbf45d297b029e3b144e54fc974bcda",
       "localSha256": "ab4406b5235108a336a7c3a0f2688f5b8a39452c4edd5354e1c8d77681f6e8ed",
       "sha256": "ab4406b5235108a336a7c3a0f2688f5b8a39452c4edd5354e1c8d77681f6e8ed",
+      "status": "pristine"
+    },
+    {
+      "source": "gen1recomp",
+      "sourceId": "gen1recomp",
+      "upstreamPath": "src/mods/ModProfile.lua",
+      "path": "src/mods/ModProfile.lua",
+      "productPath": "runtime/game/src/mods/ModProfile.lua",
+      "destination": "runtime/game/src/mods/ModProfile.lua",
+      "upstreamBlob": "f41181f82ff23a3bd2031e240a1ebf08fc0c0a89",
+      "blob": "f41181f82ff23a3bd2031e240a1ebf08fc0c0a89",
+      "localSha256": "d8debce893a8ec695f5656036947bd24b27bba65afa52f24375dc7fc3879a1b8",
+      "sha256": "d8debce893a8ec695f5656036947bd24b27bba65afa52f24375dc7fc3879a1b8",
       "status": "pristine"
     },
     {
@@ -3607,19 +3750,6 @@
     {
       "source": "gen1recomp",
       "sourceId": "gen1recomp",
-      "upstreamPath": "tools/rom_manifest.json",
-      "path": "tools/rom_manifest.json",
-      "productPath": "runtime/game/import-manifests/rom_manifest.json",
-      "destination": "runtime/game/import-manifests/rom_manifest.json",
-      "upstreamBlob": "b8233558d99bd7fddbf3c2ee8f51486c3802e229",
-      "blob": "b8233558d99bd7fddbf3c2ee8f51486c3802e229",
-      "localSha256": "e32037dd9bd72bb14ac2449fc964f385732ae5429c37de861426fd168586962d",
-      "sha256": "e32037dd9bd72bb14ac2449fc964f385732ae5429c37de861426fd168586962d",
-      "status": "pristine"
-    },
-    {
-      "source": "gen1recomp",
-      "sourceId": "gen1recomp",
       "upstreamPath": "tools/rom_manifest_blue.json",
       "path": "tools/rom_manifest_blue.json",
       "productPath": "runtime/game/import-manifests/rom_manifest_blue.json",
@@ -3641,6 +3771,19 @@
       "blob": "9bda56d2cbb0b4049e50ed738caa1eee7ca17164",
       "localSha256": "ff1c83919442013c92f6f9df0b1359a1415a59870640046d83dfa0582978a29c",
       "sha256": "ff1c83919442013c92f6f9df0b1359a1415a59870640046d83dfa0582978a29c",
+      "status": "pristine"
+    },
+    {
+      "source": "gen1recomp",
+      "sourceId": "gen1recomp",
+      "upstreamPath": "tools/rom_manifest.json",
+      "path": "tools/rom_manifest.json",
+      "productPath": "runtime/game/import-manifests/rom_manifest.json",
+      "destination": "runtime/game/import-manifests/rom_manifest.json",
+      "upstreamBlob": "b8233558d99bd7fddbf3c2ee8f51486c3802e229",
+      "blob": "b8233558d99bd7fddbf3c2ee8f51486c3802e229",
+      "localSha256": "e32037dd9bd72bb14ac2449fc964f385732ae5429c37de861426fd168586962d",
+      "sha256": "e32037dd9bd72bb14ac2449fc964f385732ae5429c37de861426fd168586962d",
       "status": "pristine"
     }
   ],
@@ -48567,13 +48710,6 @@
     {
       "source": "gen1recomp",
       "sourceId": "gen1recomp",
-      "upstreamPath": "src/core/DiscordPresence.lua",
-      "path": "src/core/DiscordPresence.lua",
-      "reason": "desktop/Discord integration excluded"
-    },
-    {
-      "source": "gen1recomp",
-      "sourceId": "gen1recomp",
       "upstreamPath": "src/core/HostShell.lua",
       "path": "src/core/HostShell.lua",
       "reason": "desktop/Discord integration excluded"
@@ -48644,62 +48780,6 @@
     {
       "source": "gen1recomp",
       "sourceId": "gen1recomp",
-      "upstreamPath": "src/link/CodeEntry.lua",
-      "path": "src/link/CodeEntry.lua",
-      "reason": "link-play feature excluded; only generic Json.lua retained"
-    },
-    {
-      "source": "gen1recomp",
-      "sourceId": "gen1recomp",
-      "upstreamPath": "src/link/Fingerprint.lua",
-      "path": "src/link/Fingerprint.lua",
-      "reason": "link-play feature excluded; only generic Json.lua retained"
-    },
-    {
-      "source": "gen1recomp",
-      "sourceId": "gen1recomp",
-      "upstreamPath": "src/link/Handshake.lua",
-      "path": "src/link/Handshake.lua",
-      "reason": "link-play feature excluded; only generic Json.lua retained"
-    },
-    {
-      "source": "gen1recomp",
-      "sourceId": "gen1recomp",
-      "upstreamPath": "src/link/LinkBattle.lua",
-      "path": "src/link/LinkBattle.lua",
-      "reason": "link-play feature excluded; only generic Json.lua retained"
-    },
-    {
-      "source": "gen1recomp",
-      "sourceId": "gen1recomp",
-      "upstreamPath": "src/link/LinkState.lua",
-      "path": "src/link/LinkState.lua",
-      "reason": "link-play feature excluded; only generic Json.lua retained"
-    },
-    {
-      "source": "gen1recomp",
-      "sourceId": "gen1recomp",
-      "upstreamPath": "src/link/Net.lua",
-      "path": "src/link/Net.lua",
-      "reason": "link-play feature excluded; only generic Json.lua retained"
-    },
-    {
-      "source": "gen1recomp",
-      "sourceId": "gen1recomp",
-      "upstreamPath": "src/link/Protocol.lua",
-      "path": "src/link/Protocol.lua",
-      "reason": "link-play feature excluded; only generic Json.lua retained"
-    },
-    {
-      "source": "gen1recomp",
-      "sourceId": "gen1recomp",
-      "upstreamPath": "src/link/Tournament.lua",
-      "path": "src/link/Tournament.lua",
-      "reason": "link-play feature excluded; only generic Json.lua retained"
-    },
-    {
-      "source": "gen1recomp",
-      "sourceId": "gen1recomp",
       "upstreamPath": "src/mods/LauncherMods.lua",
       "path": "src/mods/LauncherMods.lua",
       "reason": "general mod store/installer/update UI excluded"
@@ -48707,22 +48787,8 @@
     {
       "source": "gen1recomp",
       "sourceId": "gen1recomp",
-      "upstreamPath": "src/mods/ManagerState.lua",
-      "path": "src/mods/ManagerState.lua",
-      "reason": "general mod store/installer/update UI excluded"
-    },
-    {
-      "source": "gen1recomp",
-      "sourceId": "gen1recomp",
       "upstreamPath": "src/mods/ModIndex.lua",
       "path": "src/mods/ModIndex.lua",
-      "reason": "general mod store/installer/update UI excluded"
-    },
-    {
-      "source": "gen1recomp",
-      "sourceId": "gen1recomp",
-      "upstreamPath": "src/mods/ModProfile.lua",
-      "path": "src/mods/ModProfile.lua",
       "reason": "general mod store/installer/update UI excluded"
     },
     {
@@ -53550,7 +53616,7 @@
   "reconciliation": {
     "candidateBuild": "passed",
     "candidateDirectory": ".pokevoxel-test-data/cache/upstream-refresh-compatible-stable",
-    "changedPristine": 0,
+    "changedPristine": 9,
     "changedPatched": 0,
     "resolvedConflictFiles": 0,
     "candidateRetained": true
