@@ -175,6 +175,7 @@ gen1recomp	src/core/Timing.lua	runtime/game/src/core/Timing.lua	1a1e05bf023de779
 gen1recomp	src/core/TouchControls.lua	runtime/game/src/core/TouchControls.lua	efdfee22a8386056d7e620d33ba0e505ea91ff83
 gen1recomp	src/core/Version.lua	runtime/game/src/core/Version.lua	c57b91a249b5ba50025e0e68bd9e65a5054af26c
 gen1recomp	src/core/VideoMode.lua	runtime/game/src/core/VideoMode.lua	39dc715aec8e2248b68931cd350e19635f197cf3
+gen1recomp	src/debug/SwitchDiagnostics.lua	runtime/game/src/debug/SwitchDiagnostics.lua	e40cb6fca79091bfa0dbaa89fa046be6f92cfcb9
 gen1recomp	src/import/CacheFs.lua	runtime/game/src/import/CacheFs.lua	56974cdb84e6ea2e46b3378810d4573b52db1786
 gen1recomp	src/import/ImageWriter.lua	runtime/game/src/import/ImageWriter.lua	9ab64fc7cd1d476d69a2cbcca2e427404979941b
 gen1recomp	src/import/LuaWriter.lua	runtime/game/src/import/LuaWriter.lua	ad2955d5319dac542b5cc8b4dccab87314213637

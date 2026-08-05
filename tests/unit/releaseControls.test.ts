@@ -14,6 +14,13 @@ describe('release controls', () => {
     expect(QUICK_CONTROLS.find((entry) => entry.label === 'Zoom')?.keys).toEqual(['Q', 'E', 'Wheel']);
   });
 
+  it('anchors the 4:3 game canvas directly below the controls', () => {
+    const css = text('src', 'styles.css');
+    expect(css).toContain('--runtime-top: 4.5rem');
+    expect(css).toContain('padding-top: var(--runtime-top); place-items: start center');
+    expect(css).toContain('calc(133.333vh - var(--runtime-width-offset))');
+  });
+
   it('documents every retained camera rung, switch, and camera input', () => {
     expect(CAMERA_LADDER).toEqual(['OFF', '15°', '35°', '50°', '75°', '1ST', '3RD']);
     expect(item('Voxel camera')?.keys).toEqual(['3', 'Select']);

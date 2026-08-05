@@ -52,9 +52,9 @@ h1 span { color: #d34c3b; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; } }
 @media (max-width: 480px) { .welcome-shell { padding: 1rem; } .welcome-panel { width: calc(100% - 8px); padding: 4rem 1.1rem 1.8rem; border-width: 3px; box-shadow: 6px 6px 0 #edc640; } .brand-lockup { grid-template-columns: 2.4rem minmax(0, 1fr); gap: .6rem; } h1 { font-size: clamp(2.45rem, 15vw, 3.2rem); }.eyebrow { font-size: .58rem; letter-spacing: .09em; }.rom-picker { align-items: flex-start; }.cartridge-mark { width: 48px; flex: 0 0 auto; padding: .2rem; }.cartridge-mark i { font-size: .58rem; }.rom-sha { grid-template-columns: 1fr; gap: .2rem; }.panel-tools { top: .45rem; right: .45rem; gap: .35rem; }.panel-icon-link, .start-over-icon { width: 2.35rem; height: 2.35rem; } }
 .runtime-controls { position: relative; z-index: 1; }
-.runtime-stage[data-state="playing"] { z-index: 0; background: #000; }
+.runtime-stage[data-state="playing"] { --runtime-top: 4.5rem; --runtime-width-offset: 6rem; z-index: 0; padding-top: var(--runtime-top); place-items: start center; background: #000; }
 .runtime-stage[data-state="playing"]::before, .runtime-stage[data-state="playing"]::after { display: none; }
-.runtime-stage[data-state="playing"] .runtime-canvas { width: min(100vw, 133.333vh, 1024px); opacity: 1; border: 0; background: #000; }
+.runtime-stage[data-state="playing"] .runtime-canvas { width: min(100vw, calc(133.333vh - var(--runtime-width-offset)), 1024px); opacity: 1; border: 0; background: #000; }
 .runtime-handoff { min-height: 0; padding: 0; pointer-events: none; }
 .persistence-indicator { position: fixed; right: 1rem; bottom: 1rem; z-index: 2; margin: 0; padding: .45rem .7rem; color: #fff8d9; background: rgb(25 40 70 / .9); border: 1px solid #f4da62; font-size: .78rem; font-weight: 800; }
 .import-progress { width: min(100%, 22rem); height: 1rem; margin: 0 1rem 0 0; vertical-align: middle; accent-color: #31543e; }
@@ -102,6 +102,7 @@ kbd { min-width: 1.5rem; padding: .15rem .32rem; color: #192846; background: #ff
 .control-row .control-keys { flex-wrap: wrap; }
 
 @media (max-width: 760px) {
+  .runtime-stage[data-state="playing"] { --runtime-top: 4.1rem; --runtime-width-offset: 5.467rem; }
   .game-controls { left: .55rem; right: .55rem; width: auto; min-height: 2.9rem; justify-content: space-between; transform: none; }
   .game-controls__label { border-right: 0; }
   .quick-controls { display: none; }

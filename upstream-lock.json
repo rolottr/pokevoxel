@@ -2307,6 +2307,19 @@
     {
       "source": "gen1recomp",
       "sourceId": "gen1recomp",
+      "upstreamPath": "src/debug/SwitchDiagnostics.lua",
+      "path": "src/debug/SwitchDiagnostics.lua",
+      "productPath": "runtime/game/src/debug/SwitchDiagnostics.lua",
+      "destination": "runtime/game/src/debug/SwitchDiagnostics.lua",
+      "upstreamBlob": "e40cb6fca79091bfa0dbaa89fa046be6f92cfcb9",
+      "blob": "e40cb6fca79091bfa0dbaa89fa046be6f92cfcb9",
+      "localSha256": "a53b7950c8fc9be6f60ab7bca924d9107e863c962832dc20f5f10ef17b82d8ed",
+      "sha256": "a53b7950c8fc9be6f60ab7bca924d9107e863c962832dc20f5f10ef17b82d8ed",
+      "status": "pristine"
+    },
+    {
+      "source": "gen1recomp",
+      "sourceId": "gen1recomp",
       "upstreamPath": "src/import/CacheFs.lua",
       "path": "src/import/CacheFs.lua",
       "productPath": "runtime/game/src/import/CacheFs.lua",
@@ -48584,13 +48597,6 @@
       "sourceId": "gen1recomp",
       "upstreamPath": "src/core/NxDisplay.lua",
       "path": "src/core/NxDisplay.lua",
-      "reason": "non-runtime platform, test, documentation, mod, tool, or launcher asset"
-    },
-    {
-      "source": "gen1recomp",
-      "sourceId": "gen1recomp",
-      "upstreamPath": "src/debug/SwitchDiagnostics.lua",
-      "path": "src/debug/SwitchDiagnostics.lua",
       "reason": "non-runtime platform, test, documentation, mod, tool, or launcher asset"
     },
     {

@@ -6422,7 +6422,6 @@ gen1recomp	src/core/HostShell.lua	desktop/Discord integration excluded
 gen1recomp	src/core/LaunchOptions.lua	non-runtime platform, test, documentation, mod, tool, or launcher asset
 gen1recomp	src/core/NxAssetOverlay.lua	non-runtime platform, test, documentation, mod, tool, or launcher asset
 gen1recomp	src/core/NxDisplay.lua	non-runtime platform, test, documentation, mod, tool, or launcher asset
-gen1recomp	src/debug/SwitchDiagnostics.lua	non-runtime platform, test, documentation, mod, tool, or launcher asset
 gen1recomp	src/dev/Console.lua	not in Yellow browser runtime allowlist
 gen1recomp	src/dev/HotReload.lua	not in Yellow browser runtime allowlist
 gen1recomp	src/import/LauncherSettings.lua	save-editor or native launcher surface excluded

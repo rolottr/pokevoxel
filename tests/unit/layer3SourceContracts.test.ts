@@ -29,6 +29,15 @@ describe('Layer 3 browser runtime source contracts', () => {
     expect(app).toContain('this.runtime.canvas.focus({ preventScroll: true })');
   });
 
+  it('packages the exact pinned diagnostics module required by lifecycle resume', () => {
+    const game = text('runtime', 'game', 'src', 'core', 'Game.lua');
+    const diagnostics = text('runtime', 'game', 'src', 'debug', 'SwitchDiagnostics.lua');
+    expect(game).toContain('require("src.debug.SwitchDiagnostics")');
+    expect(diagnostics).toContain('function SwitchDiagnostics.isEnabled()');
+    expect(diagnostics).toContain('function SwitchDiagnostics.onEvent(kind, payload)');
+    expect(diagnostics).toContain('function SwitchDiagnostics.onJoystickEvent(kind, joystick, button, extra)');
+  });
+
   it('uses an explicit browser frame loop that updates, draws, and presents', () => {
     const main = text('runtime', 'game', 'main.lua');
     expect(main).toMatch(/function love\.run\(\)/);
