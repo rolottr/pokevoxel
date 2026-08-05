@@ -1,0 +1,21 @@
+{
+  "id": "DRAMATIC_SHAPE",
+  "name": "Dramatic Shape Voxel Mod",
+  "version": "1.5.5",
+  "api": 2,
+  "entry": "main.lua",
+  "enabled": true,
+  "profile": "content",
+  "category": "GRAPHICS",
+  "game_version": "0.0.0-dev || >=0.1.37 <2.0.0",
+  "priority": 100,
+  "dependencies": [],
+  "optional_dependencies": [],
+  "conflicts": [],
+  "permissions": [
+    "engine_internals"
+  ],
+  "affects_link": false,
+  "description": "Pokevoxel's built-in 3D presentation: extruded terrain, reflective water, depth-buffered character and structure occlusion, day/night lighting, staged battles, retained first- and third-person cameras with shared controls, palette-aware atlases, and a UI-safe tilt-shift world pass. Collision, movement transitions, warps, encounters, battle rules, scripts, and saves remain owned by the base game.",
+  "github": "DramaticShape/DramaticShapeVoxelMod"
+}

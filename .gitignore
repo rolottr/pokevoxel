@@ -1,0 +1,39 @@
+# User-owned ROMs and extracted proprietary game data
+*.gb
+*.gbc
+*.gba
+runtime-cache/
+cache/
+extracted/
+
+# Generated LÖVE/love.js payloads
+*.love
+public/runtime/
+dist/
+
+# Browser persistence and test evidence
+.idbfs/
+indexeddb-profiles/
+playwright/.cache/
+test-results/
+playwright-report/
+traces/
+screenshots/
+campaign-evidence/
+.pokevoxel-test-data/
+.superpowers/
+
+# Local operating-system metadata
+.DS_Store
+
+# Node and test tooling
+node_modules/
+coverage/
+.vitest/
+playwright/.cache/
+playwright-report/
+blob-report/
+test-results/
+docs
+agent-progress.txt
+tasks.json

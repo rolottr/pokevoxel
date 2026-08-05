@@ -1,0 +1,53 @@
+{
+  "name": "pokevoxel",
+  "version": "0.1.0",
+  "private": true,
+  "description": "An unofficial local-ROM browser fork integrating Gen1Recomp with Dramatic Shape Voxel Mod.",
+  "type": "module",
+  "scripts": {
+    "predev": "npm run build:runtime",
+    "dev": "vite",
+    "build": "npm run build:runtime && npm run typecheck && npm run build:client && npm run audit:dist",
+    "build:client": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run --passWithNoTests",
+    "verify:upstream": "node scripts/verify-upstream.mjs",
+    "verify": "npm run verify:upstream && npm run typecheck && npm run test:unit && npm run test:lua && npm run build:runtime && npm run build:client && npm run audit:dist && POKEVOXEL_SKIP_CLIENT_BUILD=1 npm run test:browser",
+    "verify:private": "npm run verify && POKEVOXEL_SKIP_RUNTIME_BUILD=1 POKEVOXEL_SKIP_CLIENT_BUILD=1 npm run test:browser:audio:focused && npm run test:native-audio",
+    "test:unit": "vitest run",
+    "test:browser": "node scripts/run-browser-lane.mjs -- tests/browser/welcome.spec.ts tests/browser/rom-rejection.spec.ts tests/browser/import-and-boot.spec.ts tests/browser/privateRomAudit.spec.ts tests/browser/save-persistence.spec.ts",
+    "test:browser:audio:focused": "node scripts/run-browser-lane.mjs --private-audio --audio-scenarios -- tests/browser/audio-start.spec.ts tests/browser/audio-scenes.spec.ts tests/browser/audio-low-hp.spec.ts",
+    "test:browser:voxel:focused": "node scripts/run-browser-lane.mjs --private-audio --voxel-scenarios -- tests/browser/voxel-overworld.spec.ts",
+    "test:browser:water:focused": "node scripts/run-browser-lane.mjs --private-audio --water-scenarios -- tests/browser/water.spec.ts",
+    "test:browser:battle:focused": "node scripts/run-browser-lane.mjs --private-audio --battle-scenarios -- tests/browser/battle.spec.ts",
+    "test:browser:first-person:focused": "node scripts/run-browser-lane.mjs --private-audio --first-person-scenarios -- tests/browser/first-person.spec.ts",
+    "test:browser:audio:journey": "POKEVOXEL_PUBLIC_AUDIO_JOURNEY=1 POKEVOXEL_PLAYWRIGHT_WALL_TIMEOUT_MS=660000 POKEVOXEL_PLAYWRIGHT_IDLE_TIMEOUT_MS=660000 node scripts/run-browser-lane.mjs --private-audio -- tests/browser/audio.spec.ts",
+    "test:browser:full": "npm run build:runtime && npm run audit:runtime && npm run build:client && npm run audit:dist && POKEVOXEL_SKIP_CLIENT_BUILD=1 npm run test:browser && POKEVOXEL_SKIP_RUNTIME_BUILD=1 POKEVOXEL_SKIP_CLIENT_BUILD=1 npm run test:browser:audio:focused && POKEVOXEL_SKIP_CLIENT_BUILD=1 npm run test:browser:audio:journey",
+    "audit:shell": "node scripts/audit-shell.mjs",
+    "build:runtime": "node scripts/build-runtime.mjs",
+    "audit:runtime": "node scripts/audit-runtime.mjs",
+    "audit:dist": "node scripts/audit-dist.mjs",
+    "test:lua": "luajit tests/lua/web_persistence_protocol_spec.lua",
+    "test:native-audio": "node scripts/test-native-audio.mjs",
+    "test:native-voxel": "node scripts/test-native-voxel.mjs",
+    "test:native-battle": "node scripts/test-native-battle.mjs",
+    "check:edit": "node scripts/run-checks.mjs edit",
+    "check:resume": "node scripts/run-checks.mjs resume",
+    "check:doctor": "node scripts/check-doctor.mjs",
+    "check:goal": "node scripts/run-checks.mjs goal",
+    "check:merge": "node scripts/run-checks.mjs merge",
+    "check:full": "node scripts/run-checks.mjs full"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "@types/node": "^26.1.2",
+    "fflate": "0.8.3",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.0",
+    "vitest": "^4.1.10"
+  },
+  "dependencies": {
+    "love.js": "11.4.1"
+  }
+}
