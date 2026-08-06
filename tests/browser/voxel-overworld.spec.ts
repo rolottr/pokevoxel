@@ -7,6 +7,13 @@ const performanceTest = test.extend({});
 performanceTest.use({ trace: 'off' });
 
 type DecodedPng = Readonly<{ width: number; height: number; data: Buffer }>;
+type AudioProbe = Readonly<{
+  renderer: 'stock' | 'pokeaudio-hd';
+  queued: number;
+  playing: boolean;
+  musicSources: number;
+  pcmNonzero: boolean;
+}>;
 const { PNG } = createRequire(import.meta.url)('playwright-core/lib/utilsBundle') as {
   PNG: { sync: { read(input: Buffer): DecodedPng } };
 };
@@ -17,6 +24,11 @@ const fixtures = [
   ['1', 'PALLET_TOWN'], ['2', 'REDS_HOUSE_1F'],
   ['3', 'VIRIDIAN_FOREST'], ['4', 'ROCK_TUNNEL_1F'],
 ] as const;
+
+async function currentAudioProbe(page: import('@playwright/test').Page): Promise<AudioProbe | undefined> {
+  const raw = await page.getByTestId('audio-probe').textContent();
+  return raw ? JSON.parse(raw) as AudioProbe : undefined;
+}
 
 async function walkingFrameEvidence(page: import('@playwright/test').Page): Promise<Readonly<{
   p95: number;
@@ -49,6 +61,12 @@ performanceTest('keeps sustained Pallet walking inside the voxel frame budget', 
     buildingDepth: true, menus: false, fallback: false,
   });
   await voxel.page.waitForTimeout(500);
+  await expect.poll(async () => currentAudioProbe(voxel.page), { timeout: 15_000 }).toMatchObject({
+    renderer: process.env.POKEVOXEL_TEST_AUDIO_RENDERER === 'stock' ? 'stock' : 'pokeaudio-hd',
+    playing: true,
+    musicSources: 1,
+    pcmNonzero: true,
+  });
 
   const canvas = voxel.page.locator('canvas');
   await canvas.focus();
@@ -66,6 +84,10 @@ performanceTest('keeps sustained Pallet walking inside the voxel frame budget', 
     }
   };
   const [evidence] = await Promise.all([walkingFrameEvidence(voxel.page), walk()]);
+  console.log('voxel runtime diagnostics', await voxel.runtimeDiagnostics());
+  const audio = await currentAudioProbe(voxel.page);
+  expect(audio).toMatchObject({ playing: true, musicSources: 1, pcmNonzero: true });
+  expect(audio?.queued ?? 0).toBeGreaterThan(0);
   expect(evidence.p95).toBeLessThanOrEqual(25);
   expect(evidence.longFrames).toBeLessThanOrEqual(9);
 });

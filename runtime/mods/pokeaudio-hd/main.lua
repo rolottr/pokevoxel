@@ -12,7 +12,7 @@ return function(mod)
       label = "AUDIO DRIVER",
       choices = {
         { "HD", "pokeaudio-hd" },
-        { "STOCK", "stock" },
+        { "8BIT", "stock" },
       },
       default = "pokeaudio-hd",
     },
@@ -20,10 +20,16 @@ return function(mod)
   if mod.options and mod.options.define then
     mod.options:define(rendererSchema)
   end
+  ChipAudio.setLiveRendererSwitch(true)
 
   local rendererId = "stock"
-  local noticeText
+  local noticeTarget
+  local noticeSettled = false
   local noticeFrames = 0
+
+  local function rendererLabel(id)
+    return id == "pokeaudio-hd" and "HD" or "8BIT"
+  end
 
   local function normalizedRenderer(value)
     return value == "stock" and "stock" or "pokeaudio-hd"
@@ -39,9 +45,9 @@ return function(mod)
     rendererId = actual or ChipAudio.getRendererId()
     mod.exports.renderer = rendererId
     if announce then
-      noticeText = rendererId == "pokeaudio-hd" and "AUDIO: HD"
-        or "AUDIO: STOCK"
-      noticeFrames = 90
+      noticeTarget = rendererId
+      noticeSettled = false
+      noticeFrames = 0
     end
     return rendererId
   end
@@ -67,8 +73,25 @@ return function(mod)
 
   local function drawNotice(next, _, viewport)
     next()
-    if not noticeText or noticeFrames <= 0 then return end
-    noticeFrames = noticeFrames - 1
+    if not noticeTarget then return end
+    local status = ChipAudio.rendererSwitchStatus(noticeTarget)
+    local settled = status.current == noticeTarget
+    if settled and not noticeSettled then
+      noticeSettled = true
+      noticeFrames = 90
+    elseif settled and noticeFrames <= 0 then
+      noticeTarget = nil
+      return
+    end
+    local noticeText
+    if settled then
+      noticeText = "AUDIO: " .. rendererLabel(noticeTarget)
+      noticeFrames = noticeFrames - 1
+    else
+      noticeText = string.format("AUDIO: %s > %s %.1fs",
+        rendererLabel(status.current), rendererLabel(noticeTarget),
+        math.max(0.1, status.seconds))
+    end
     love.graphics.push("all")
     local width = viewport and viewport.width or love.graphics.getWidth()
     local right = viewport and (viewport.gameX + viewport.gameWidth) or width

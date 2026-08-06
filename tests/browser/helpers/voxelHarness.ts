@@ -36,6 +36,10 @@ class VoxelHarness {
       await this.page.locator('#gen1-rom-input').setInputFiles(rom);
       await expect(this.page.getByTestId('cache-committed')).toBeAttached({ timeout: 120_000 });
     }
+    if (process.env.POKEVOXEL_TEST_AUDIO_RENDERER === 'stock') {
+      const hd = this.page.getByRole('checkbox', { name: /Use PokeAudio HD/i });
+      if (await hd.isChecked()) await hd.uncheck();
+    }
     const startedAt = Date.now();
     await this.page.getByRole('button', { name: /^start game$/i }).click();
     await expect(this.page.locator('.runtime-stage')).toHaveAttribute('data-state', 'playing', { timeout: 5_000 });

@@ -35,7 +35,8 @@ local BUF = ChipSynth.MUSIC_BUFFER_SAMPLES
 -- pauses.  The deep (~6s) playback depth lives in the main-thread Source; this
 -- only bounds the worker's look-ahead (and its memory) between drains.
 local LOOKAHEAD = 8
-local liveLookahead = LOOKAHEAD
+-- Avoid a 1ms busy poll while the audio queues are full.
+local IDLE_SLEEP = 0.010
 
 local gen = nil        -- active song generation, or nil when stopped
 local engine = nil     -- the ChipSynth engine producing the current song
@@ -49,7 +50,6 @@ local function handle(cmd)
     engine = nil
     outCh:clear() -- drop any buffers left from the previous song
     data = { audio = cmd.audio }
-    liveLookahead = cmd.liveSwitch == true and 1 or LOOKAHEAD
     local rendererOk, rendererErr = ChipSynth.setRenderer(cmd.renderer)
     if not rendererOk then
       ChipSynth.setRenderer(nil)
@@ -77,7 +77,6 @@ local function handle(cmd)
     finished = false
     outCh:clear()
   elseif cmd.cmd == "renderer" then
-    if cmd.liveSwitch == true then liveLookahead = 1 end
     local rendererOk, rendererErr = ChipSynth.setRenderer(cmd.renderer)
     if not rendererOk then
       ChipSynth.setRenderer(nil)
@@ -109,7 +108,7 @@ while true do
   end
   if quit then break end
 
-  if engine and not finished and gen and outCh:getCount() < liveLookahead then
+  if engine and not finished and gen and outCh:getCount() < LOOKAHEAD then
     local activeGen = gen
     local ok, sd, pcm = pcall(ChipSynth.soundData, engine, BUF, 2)
     if not ok then
@@ -125,6 +124,6 @@ while true do
     end
   else
     -- nothing to do (idle, or the look-ahead is full): yield the core
-    love.timer.sleep(0.001)
+    love.timer.sleep(IDLE_SLEEP)
   end
 end

@@ -353,12 +353,13 @@ local DEPTH_FORMATS = { "depth16", "depth24stencil8", "depth24", "depth32f" }
 -- failure remains a capability failure; it must not silently fall back.
 local READABLE_DEPTH_ENABLED = true
 
-local function newDepth(w, h)
+local function newDepth(w, h, readable)
   if not (love.graphics and love.graphics.newCanvas) then return nil end
+  readable = readable == true
   local supported = nil
   if type(love.graphics.getCanvasFormats) == "function" then
     local formatsOk, formats = pcall(function()
-      return love.graphics.getCanvasFormats(true)
+      return love.graphics.getCanvasFormats(readable)
     end)
     if formatsOk and type(formats) == "table" then supported = formats end
   end
@@ -373,7 +374,7 @@ local function newDepth(w, h)
       -- bridge's table-call exception escape before pcall owns the invocation.
       local ok, made = xpcall(function()
         return love.graphics.newCanvas(
-          w, h, { format = format, readable = true })
+          w, h, { format = format, readable = readable })
       end, function() return nil end)
       local madeType = type(made)
       if ok and made and (madeType == "userdata" or madeType == "table") then
@@ -393,21 +394,24 @@ local function newDepth(w, h)
     end
   end
   if not c then return nil end
-  -- nearest: a depth is a distance, and a blend of two of them is a
-  -- distance to nothing. The march wants the texel it landed on.
-  pcall(function() c:setFilter("nearest", "nearest") end)
-  pcall(function() c:setWrap("clamp", "clamp") end)
-  -- and no compare mode: with one set, Texel returns a 0/1 shadow verdict
-  -- instead of the depth, which is not what any reader here wants
-  pcall(function() c:setDepthSampleMode() end)
+  if readable then
+    -- nearest: a depth is a distance, and a blend of two of them is a
+    -- distance to nothing. The march wants the texel it landed on.
+    pcall(function() c:setFilter("nearest", "nearest") end)
+    pcall(function() c:setWrap("clamp", "clamp") end)
+    -- and no compare mode: with one set, Texel returns a 0/1 shadow verdict
+    -- instead of the depth, which is not what any reader here wants
+    pcall(function() c:setDepthSampleMode() end)
+  end
   return c
 end
 
 -- The bound target for the slot this pass holds: the colour canvas plus
 -- either the readable depth canvas or the internal buffer.
 local function depthTarget()
-  if held and held.depth then
-    return { held.canvas, depthstencil = held.depth }
+  local attachment = held and (held.depth or held.depthAttachment)
+  if attachment then
+    return { held.canvas, depthstencil = attachment }
   end
   return { canvas, depth = true }
 end
@@ -416,7 +420,7 @@ end
 -- water pass reads (see beginWater); it is only ever made if something asks
 -- for one, so a session that never sees a lake never pays for it.
 local function releaseSlot(slotHeld)
-  for _, key in ipairs({ "canvas", "depth", "mirror" }) do
+  for _, key in ipairs({ "canvas", "depth", "depthAttachment", "mirror" }) do
     local obj = slotHeld[key]
     if obj and obj.release then pcall(obj.release, obj) end
     slotHeld[key] = nil
@@ -965,20 +969,25 @@ function Voxel3D.beginScene(w, h, cx, cy, vw, vh, sky, slot, readableDepth)
     -- the depth canvas is sized with its colour, so a window resize
     -- reallocates the pair together and they can never disagree
     local depth = READABLE_DEPTH_ENABLED and readableDepth
-      and newDepth(w, h) or nil
+      and newDepth(w, h, true) or nil
+    local packedDepth = READABLE_DEPTH_ENABLED and readableDepth
+      and not depth or false
     slotHeld = {
       canvas = c, w = w, h = h,
       depth = depth,
-      packedDepth = READABLE_DEPTH_ENABLED and readableDepth
-        and not depth or false,
+      -- Reuse one explicit fallback attachment across target switches.
+      depthAttachment = packedDepth and newDepth(w, h, false) or nil,
+      packedDepth = packedDepth,
     }
     slots[name] = slotHeld
   elseif READABLE_DEPTH_ENABLED and readableDepth
       and not slotHeld.depth and not slotHeld.packedDepth then
     -- Water is map-local. Allocate its sampleable depth target only when a
     -- frame first contains water instead of burdening every indoor/voxel map.
-    slotHeld.depth = newDepth(w, h)
+    slotHeld.depth = newDepth(w, h, true)
     slotHeld.packedDepth = not slotHeld.depth
+    slotHeld.depthAttachment = slotHeld.packedDepth
+      and newDepth(w, h, false) or nil
   end
   held = slotHeld
   canvas, canvasW, canvasH = held.canvas, w, h
@@ -1293,8 +1302,9 @@ function Voxel3D.beginWater(paint, restoreDepth)
   -- Stable presentation reflects the live scene every frame. Camera drift,
   -- animation phase, facing and autonomous NPC movement all belong in the
   -- water instead of waiting for a coarse cache key to change.
-  local mirrorTarget = held.depth
-    and { held.mirror, depthstencil = held.depth }
+  local sharedDepth = held.depth or held.depthAttachment
+  local mirrorTarget = sharedDepth
+    and { held.mirror, depthstencil = sharedDepth }
     or { held.mirror, depth = true }
   local ok = pcall(love.graphics.setCanvas, mirrorTarget)
   if not ok then
@@ -1302,15 +1312,14 @@ function Voxel3D.beginWater(paint, restoreDepth)
     return nil
   end
   love.graphics.setDepthMode("always", false)
-  -- The explicit readable attachment already contains the terrain depth and
-  -- is shared with the world target. The packed target is a fresh anonymous
-  -- attachment, so clear and rebuild it before painting the reflected cast.
-  love.graphics.clear(0, 0, 0, 0, false, held.packedDepth)
+  -- Only an anonymous packed target needs its depth rebuilt.
+  local anonymousPackedDepth = held.packedDepth and not held.depthAttachment
+  love.graphics.clear(0, 0, 0, 0, false, anonymousPackedDepth)
   love.graphics.setBlendMode("alpha", "premultiplied")
   love.graphics.setColor(1, 1, 1, 1)
   love.graphics.draw(canvas)
   love.graphics.setBlendMode("alpha")
-  if held.packedDepth then
+  if anonymousPackedDepth then
     local began = Voxel3D.beginDepthRestore()
     local restoredOk, restored = false, false
     if began and restoreDepth then
@@ -1329,11 +1338,10 @@ function Voxel3D.beginWater(paint, restoreDepth)
     love.graphics.setShader()
   end
   love.graphics.setDepthMode()
-  -- Back to the scene colour target WITHOUT a depth attachment, exactly like
-  -- upstream: the water shader is about to sample the explicit depth texture
-  -- (or the packed copy in mirror), so neither source may remain attached.
-  -- Water performs that depth comparison in its shader and writes no depth.
-  if not pcall(love.graphics.setCanvas, canvas) then
+  -- Packed depth is sampled from the mirror, so its attachment can stay bound.
+  local waterTarget = held.packedDepth and held.depthAttachment
+    and depthTarget() or canvas
+  if not pcall(love.graphics.setCanvas, waterTarget) then
     pcall(love.graphics.setCanvas, depthTarget())
     return nil
   end
@@ -1359,6 +1367,12 @@ end
 
 function Voxel3D.depthPacked()
   return (active and held and held.packedDepth) and true or false
+end
+
+-- Explicit depth attachments survive mirror/world target switches.
+function Voxel3D.depthPersistent()
+  return (active and held and (held.depth or held.depthAttachment)) and true
+    or false
 end
 
 -- Whether what is drawn next carries the voxel wireframe. false for the

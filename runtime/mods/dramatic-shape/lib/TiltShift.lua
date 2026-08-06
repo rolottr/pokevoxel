@@ -57,14 +57,13 @@ local SHADER = [[
     float d = abs(tc.y - focusY) - band;
     float s = clamp(d / range, 0.0, 1.0);
     s = s * s;             // ease in, so the band edge has no visible seam
-    // 9 taps a small step apart: dense enough that even the strongest
-    // preset blurs smoothly instead of ghosting into streaks
+    // Pair the original nine Gaussian taps through linear filtering.
     vec2 o = dir * (s * spacing);
     vec4 sum = Texel(tex, tc) * 0.2270270270;
-    sum += (Texel(tex, tc + o) + Texel(tex, tc - o)) * 0.1945945946;
-    sum += (Texel(tex, tc + 2.0 * o) + Texel(tex, tc - 2.0 * o)) * 0.1216216216;
-    sum += (Texel(tex, tc + 3.0 * o) + Texel(tex, tc - 3.0 * o)) * 0.0540540541;
-    sum += (Texel(tex, tc + 4.0 * o) + Texel(tex, tc - 4.0 * o)) * 0.0162162162;
+    sum += (Texel(tex, tc + 1.3846153846 * o)
+          + Texel(tex, tc - 1.3846153846 * o)) * 0.3162162162;
+    sum += (Texel(tex, tc + 3.2307692304 * o)
+          + Texel(tex, tc - 3.2307692304 * o)) * 0.0702702703;
     if (boost > 0.5) {
       float luma = dot(sum.rgb, vec3(0.299, 0.587, 0.114));
       sum.rgb = mix(vec3(luma), sum.rgb, saturation);

@@ -48,19 +48,31 @@ describe('Layer 5 audio source contracts', () => {
     expect(synth).toContain('rendererId = activeRendererId');
     expect(chip).toContain('renderer = ChipSynth.getRendererDescriptor()');
     expect(chip).not.toContain('if currentMusic then ChipAudio.stopMusic() end');
-    expect(chip).toContain('LIVE_SWITCH_QUEUE_TARGET = 2');
-    expect(chip).toContain('liveSwitch = liveRendererSwitch');
+    expect(chip).toContain('LIVE_SWITCH_QUEUE_TARGET = 8');
+    expect(chip).toContain('LIVE_SWITCH_START_TARGET = 4');
+    expect(chip).toContain('ChipAudio.setLiveRendererSwitch');
+    expect(chip).toContain('function ChipAudio.rendererSwitchStatus(target)');
+    expect(chip).toContain('pending * MUSIC_BUFFER_SAMPLES / SAMPLE_RATE');
+    expect(chip).toContain('buf.renderer ~= selectedRenderer');
+    expect(chip).not.toContain('liveSwitch = liveRendererSwitch');
     expect(worker).toContain('ChipSynth.setRenderer(cmd.renderer)');
-    expect(worker).toContain('liveLookahead = cmd.liveSwitch == true and 1 or LOOKAHEAD');
+    expect(worker).toContain('outCh:getCount() < LOOKAHEAD');
+    expect(worker).not.toContain('liveLookahead');
+    expect(worker).toContain('local IDLE_SLEEP = 0.010');
+    expect(worker).toContain('love.timer.sleep(IDLE_SLEEP)');
+    expect(worker).not.toContain('love.timer.sleep(0.001)');
     expect(worker).toContain('renderer = engine:getRendererId()');
     expect(main).toContain('id = "pokeaudio-hd"');
+    expect(main).toContain('ChipAudio.setLiveRendererSwitch(true)');
     expect(main).toContain('mod.exports.toggle = function()');
     expect(main).toContain('mod.exports.selectRenderer = function(value, announce)');
     expect(main).toContain('mod.options:define(rendererSchema)');
     expect(main).toContain('label = "AUDIO DRIVER"');
     expect(main).toContain('mod.events:on("mod.options_changed"');
     expect(main).toContain('payload.key == "renderer"');
-    expect(main).toContain('AUDIO: STOCK');
+    expect(main).toContain('{ "8BIT", "stock" }');
+    expect(main).toContain('ChipAudio.rendererSwitchStatus(noticeTarget)');
+    expect(main).toContain('AUDIO: %s > %s %.1fs');
     for (const method of ['pulse', 'wave', 'noise', 'mixChannel', 'processStereo']) {
       expect(renderer).toContain(`function Renderer:${method}`);
     }

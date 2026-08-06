@@ -62,7 +62,13 @@ local telemetry = { scene = "none", renderer = "stock", effect = "none", effectI
 local pendingBuf -- a current-gen buffer popped from the worker but not yet
                  -- queued because the Source was momentarily full
 local liveRendererSwitch = false
-local LIVE_SWITCH_QUEUE_TARGET = 2
+-- Live switching used to keep only two ~186ms buffers and let playback start
+-- after the first one.  The HD renderer could not always replace that buffer
+-- before WebAudio consumed it, so both music and the competing render worker
+-- visibly stuttered.  Keep a bounded ~1.5s queue for responsive A/B switching,
+-- and build four buffers before playback begins.
+local LIVE_SWITCH_QUEUE_TARGET = 8
+local LIVE_SWITCH_START_TARGET = 4
 
 local function queueTarget()
   return liveRendererSwitch and LIVE_SWITCH_QUEUE_TARGET or MUSIC_BUFFER_COUNT
@@ -85,7 +91,7 @@ end
 
 local function noteQueuedRenderer(music, renderer)
   if not music then return end
-  renderer = renderer == "pokeaudio-hd" and renderer or "stock"
+  renderer = type(renderer) == "string" and renderer or "stock"
   music.queuedRenderers[#music.queuedRenderers + 1] = renderer
   syncAudibleRenderer(music, #music.queuedRenderers)
 end
@@ -109,10 +115,6 @@ local workerReady -- nil = untried, true = running, false = unavailable
 -- and the worker music path.  Validation happens before the active renderer
 -- changes, so a malformed mod leaves the current stock/working renderer live.
 function ChipAudio.setRenderer(descriptor)
-  if descriptor and descriptor.config
-      and descriptor.config.liveSwitch == true then
-    liveRendererSwitch = true
-  end
   local ok, err = ChipSynth.setRenderer(descriptor)
   if not ok then return false, err end
   if currentMusic and currentMusic.engine
@@ -121,14 +123,43 @@ function ChipAudio.setRenderer(descriptor)
   end
   if workerReady and cmdCh then
     cmdCh:push({ cmd = "renderer",
-      renderer = ChipSynth.getRendererDescriptor(),
-      liveSwitch = liveRendererSwitch })
+      renderer = ChipSynth.getRendererDescriptor() })
   end
   return true, ChipSynth.getRendererId()
 end
 
+function ChipAudio.setLiveRendererSwitch(enabled)
+  liveRendererSwitch = enabled == true
+end
+
 function ChipAudio.getRendererId()
   return ChipSynth.getRendererId()
+end
+
+function ChipAudio.rendererSwitchStatus(target)
+  target = type(target) == "string" and target or "stock"
+  local music = currentMusic
+  if not (music and music.source) then
+    return { current = target, target = target, pendingBuffers = 0,
+      seconds = 0 }
+  end
+  local ok, free = pcall(music.source.getFreeBufferCount, music.source)
+  if ok and type(free) == "number" then
+    syncAudibleRenderer(music,
+      math.max(0, math.min(MUSIC_BUFFER_COUNT, MUSIC_BUFFER_COUNT - free)))
+  end
+  local renderers = music.queuedRenderers or {}
+  local current = renderers[1] or ChipSynth.getRendererId()
+  local pending = 0
+  if current ~= target then
+    for _, renderer in ipairs(renderers) do
+      if renderer == target then break end
+      pending = pending + 1
+    end
+  end
+  return { current = current, target = target,
+    pendingBuffers = pending,
+    seconds = pending * MUSIC_BUFFER_SAMPLES / SAMPLE_RATE }
 end
 
 local function ensureWorker()
@@ -270,7 +301,6 @@ function ChipAudio.playMusic(data, header, allowLoops)
   cmdCh:push({ cmd = "play", gen = gen, header = header,
                allowLoops = allowLoops, audio = slimAudio(data),
                renderer = ChipSynth.getRendererDescriptor(),
-               liveSwitch = liveRendererSwitch,
                channelVolumes = ChipSynth.getChannelVolumes(),
                channelPitches = ChipSynth.getChannelPitches() })
   currentMusic = { source = source, gen = gen, threaded = true,
@@ -297,6 +327,7 @@ local function updateThreaded()
     -- worker gone: nothing more will arrive; leave whatever is queued playing
     return
   end
+  local selectedRenderer = ChipSynth.getRendererId()
   while true do
     local free = m.source:getFreeBufferCount()
     local queued = MUSIC_BUFFER_COUNT - free
@@ -314,6 +345,9 @@ local function updateThreaded()
       m.finished = true
     elseif buf.warning then
       require("src.core.Logger").warn("chip audio: %s", tostring(buf.warning))
+    elseif buf.sd and liveRendererSwitch
+        and buf.renderer ~= selectedRenderer then
+      -- Drop worker look-ahead rendered before the live switch request.
     elseif buf.sd then
       if free > 0 then
         recordPcm(buf.pcm)
@@ -326,7 +360,9 @@ local function updateThreaded()
     end
   end
   if not m.started and not musicHeld then
-    if (MUSIC_BUFFER_COUNT - m.source:getFreeBufferCount()) > 0 then
+    local queued = MUSIC_BUFFER_COUNT - m.source:getFreeBufferCount()
+    local startTarget = liveRendererSwitch and LIVE_SWITCH_START_TARGET or 1
+    if queued > 0 and (queued >= startTarget or m.finished) then
       pcall(function() m.source:play() end)
       m.started = true
     end

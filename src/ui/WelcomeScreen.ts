@@ -236,7 +236,7 @@ export function renderWelcomeScreen({ model, onFile, onReset, onClearAcceptedRom
   const audioTitle = document.createElement('strong');
   audioTitle.textContent = 'Use PokeAudio HD';
   const audioHelp = document.createElement('small');
-  audioHelp.textContent = 'Uncheck for the original Stock audio driver.';
+  audioHelp.textContent = 'Uncheck for the original 8BIT audio driver.';
   audioCopy.append(audioTitle, audioHelp);
   audioChoice.append(audioInput, audioCopy);
   const status = document.createElement('p');

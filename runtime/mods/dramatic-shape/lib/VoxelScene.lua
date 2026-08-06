@@ -782,12 +782,9 @@ function VoxelScene.drawWater(draws, cast, terrainDepth)
     -- exactly like one that succeeded -- otherwise every pass after it runs
     -- with no shader and no depth test.
     pcall(Voxel3D.endWater)
-    -- Rebinding the world colour target after the water composite is not a
-    -- depth-preservation guarantee in love.js, for either its readable Canvas
-    -- or anonymous packed target. Re-submit the same terrain with colour writes
-    -- disabled before the cast is drawn, otherwise every character can pass an
-    -- empty/stale depth buffer and appear over roofs.
-    if not lastWaterEvidence.failure then
+    -- Rebuild only the last-resort anonymous depth target.
+    if not lastWaterEvidence.failure
+        and not Voxel3D.depthPersistent() then
       local began = Voxel3D.beginDepthRestore()
       local restoredOk, restored = false, false
       if began and terrainDepth then

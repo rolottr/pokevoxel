@@ -29,7 +29,7 @@ describe('tri-version welcome and license release contract', () => {
     expect(welcome).toContain("audioInput.dataset.testid = 'hd-audio-checkbox'");
     expect(welcome).toContain("audioRenderer === 'pokeaudio-hd'");
     expect(welcome).toContain('Use PokeAudio HD');
-    expect(welcome).toContain('original Stock audio driver');
+    expect(welcome).toContain('original 8BIT audio driver');
   });
 
   it('publishes Pokevoxel under MIT while retaining both upstream notices', () => {

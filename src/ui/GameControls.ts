@@ -33,7 +33,7 @@ export const CONTROL_SECTIONS: readonly ControlSection[] = [
       { label: 'Logic speed', keys: ['1'], description: 'Cycle game logic speed without changing audio speed.' },
       { label: 'Colors', keys: ['2'], description: 'Cycle the retained color modes.' },
       { label: 'Survey zoom', keys: ['-', '=', '4'], description: 'Step out, step in, or cycle the overworld survey zoom.' },
-      { label: 'Audio A/B', keys: ['F9'], description: 'Switch the live session between remastered HD and exact stock synthesis.' },
+      { label: 'Audio A/B', keys: ['F9'], description: 'Switch the live session between remastered HD and original 8BIT synthesis.' },
       { label: 'Mod options', keys: ['F10'], description: 'Open or close the built-in mod manager and its options.' },
     ],
   },

@@ -13,9 +13,17 @@ local DUTY_WIDTH = { [0] = 0.125, [1] = 0.25, [2] = 0.5, [3] = 0.75 }
 local DUTY_OFFSET = { [0] = 0.125, [1] = 0.125, [2] = 0.375, [3] = -0.125 }
 local PAN_LEFT = { 1.00, 0.20, 0.78, 0.38 }
 local PAN_RIGHT = { 0.20, 1.00, 0.78, 1.00 }
-local SINE = {}
+local LEAD_SINES = {}
+local BODY_SINES = {}
+local WAVE_SINES = {}
 for index = 0, SINE_SIZE - 1 do
-  SINE[index + 1] = math.sin(index / SINE_SIZE * TAU)
+  local phase = index / SINE_SIZE
+  local first = math.sin(phase * TAU)
+  local second = math.sin((phase * 2 % 1) * TAU)
+  LEAD_SINES[index + 1] = first * 0.62 + second * 0.16
+  BODY_SINES[index + 1] = first * 0.29
+    + math.sin((phase * 3 % 1) * TAU) * 0.10
+  WAVE_SINES[index + 1] = first * 0.58 + second * 0.14
 end
 
 local function clamp(value, low, high)
@@ -35,29 +43,8 @@ local function polyBlep(phase, step)
   return 0
 end
 
-local function sine(phase, harmonic)
-  local position = (phase * (harmonic or 1)) % 1
-  return SINE[math.floor(position * SINE_SIZE) + 1]
-end
-
 local function triangle(phase)
   return 1 - 4 * math.abs((phase % 1) - 0.5)
-end
-
-local function dcBlock(self, value, side)
-  local inputKey = side == 1 and "dcInputL" or "dcInputR"
-  local outputKey = side == 1 and "dcOutputL" or "dcOutputR"
-  local output = value - self[inputKey] + 0.995 * self[outputKey]
-  self[inputKey], self[outputKey] = value, output
-  return output
-end
-
-local function tone(self, value, side)
-  local key = side == 1 and "toneLowL" or "toneLowR"
-  local low = self[key] + (value - self[key]) * 0.045
-  self[key] = low
-  -- Keep the body while taking the brittle edge off the chip oscillators.
-  return low * 1.18 + (value - low) * 0.68
 end
 
 local function master(value)
@@ -102,13 +89,13 @@ function Renderer:pulse(stock, phase, frequency, duty, volume, gain, channel)
   -- move away from a dominant square wave. Channel 1 is a clean lead; channel
   -- 2 is a rounder accompaniment. Both remain phase-locked to the ROM note.
   local hardware = channel and channel.hardware or 1
+  local index = math.floor(shifted * SINE_SIZE) + 1
+  local tri = triangle(shifted)
   local smooth
   if hardware == 2 then
-    smooth = triangle(shifted) * 0.56 + sine(shifted) * 0.29
-      + sine(shifted, 3) * 0.10 + fundamental * 0.10
+    smooth = tri * 0.56 + BODY_SINES[index] + fundamental * 0.10
   else
-    smooth = sine(shifted) * 0.62 + triangle(shifted) * 0.24
-      + sine(shifted, 2) * 0.16 + fundamental * 0.08
+    smooth = LEAD_SINES[index] + tri * 0.24 + fundamental * 0.08
   end
   local enhanced = smooth * (volume / 15) * gain
   return stock + (enhanced - stock) * self.amount
@@ -124,8 +111,7 @@ function Renderer:wave(stock, wave, phase, level, gain)
   -- Retain enough of the selected ROM wavetable to preserve the instrument,
   -- then give the bass voice a smooth fundamental and controlled octave.
   local enhanced = clean * 0.34
-    + sine(phase) * level * gain * 0.58
-    + sine(phase, 2) * level * gain * 0.14
+    + WAVE_SINES[math.floor((phase % 1) * SINE_SIZE) + 1] * level * gain
   return stock + (enhanced - stock) * self.amount
 end
 
@@ -157,14 +143,26 @@ end
 
 function Renderer:processMono(value)
   local dry = value
-  local wet = master(dcBlock(self, tone(self, value, 1), 1))
+  local low = self.toneLowL + (value - self.toneLowL) * 0.045
+  self.toneLowL = low
+  local toned = low * 1.18 + (value - low) * 0.68
+  local wet = toned - self.dcInputL + 0.995 * self.dcOutputL
+  self.dcInputL, self.dcOutputL = toned, wet
+  wet = master(wet)
   return dry + (wet - dry) * self.amount
 end
 
 function Renderer:processStereo(left, right)
   local dryLeft, dryRight = left, right
-  left = dcBlock(self, tone(self, left, 1), 1)
-  right = dcBlock(self, tone(self, right, 2), 2)
+  local lowLeft = self.toneLowL + (left - self.toneLowL) * 0.045
+  local lowRight = self.toneLowR + (right - self.toneLowR) * 0.045
+  self.toneLowL, self.toneLowR = lowLeft, lowRight
+  local tonedLeft = lowLeft * 1.18 + (left - lowLeft) * 0.68
+  local tonedRight = lowRight * 1.18 + (right - lowRight) * 0.68
+  left = tonedLeft - self.dcInputL + 0.995 * self.dcOutputL
+  right = tonedRight - self.dcInputR + 0.995 * self.dcOutputR
+  self.dcInputL, self.dcOutputL = tonedLeft, left
+  self.dcInputR, self.dcOutputR = tonedRight, right
   local earlyLeft = self.earlyL[self.earlyIndex] or 0
   local earlyRight = self.earlyR[self.earlyIndex] or 0
   self.earlyL[self.earlyIndex] = left + earlyRight * 0.24

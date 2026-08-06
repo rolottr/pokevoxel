@@ -108,6 +108,21 @@ describe('reported browser parity repair', () => {
     expect(flowerCorrection).toBeGreaterThan(cappedPull);
   });
 
+  it('pairs adjacent tilt-shift Gaussian taps without changing their weights', () => {
+    const tilt = text('runtime', 'mods', 'dramatic-shape', 'lib', 'TiltShift.lua');
+    const nearWeight = 0.1945945946 + 0.1216216216;
+    const farWeight = 0.0540540541 + 0.0162162162;
+    const nearOffset = (0.1945945946 + 2 * 0.1216216216) / nearWeight;
+    const farOffset = (3 * 0.0540540541 + 4 * 0.0162162162) / farWeight;
+    expect(nearWeight).toBeCloseTo(0.3162162162, 10);
+    expect(farWeight).toBeCloseTo(0.0702702703, 10);
+    expect(nearOffset).toBeCloseTo(1.3846153846, 10);
+    expect(farOffset).toBeCloseTo(3.2307692304, 10);
+    expect(tilt).toContain('1.3846153846 * o');
+    expect(tilt).toContain('3.2307692304 * o');
+    expect(tilt).not.toContain('tc + 4.0 * o');
+  });
+
   it('owns ordinary F1/F2 state commands before overlays without changing normal speed', () => {
     const modMain = text('runtime', 'mods', 'dramatic-shape', 'main.lua');
     const game = text('runtime', 'game', 'src', 'core', 'Game.lua');

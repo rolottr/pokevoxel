@@ -14,10 +14,10 @@ recordings or ROM-derived assets.
 
 Install the directory under `mods/pokeaudio-hd`. The audio service always loads
 so its live controls are available for the whole session. Press F9 during play
-to compare `AUDIO: HD` and `AUDIO: STOCK` without restarting the source or
+to compare `AUDIO: HD` and `AUDIO: 8BIT` without restarting the source or
 changing the current song position; F9 is temporary. For a live setting that
 also survives the next launch, press F10, open `PokeAudio HD`, and change the
-single `AUDIO DRIVER` row to `HD` or `STOCK`. Pokevoxel's startup checkbox writes
+single `AUDIO DRIVER` row to `HD` or `8BIT`. Pokevoxel's startup checkbox writes
 that same saved setting before the title begins.
 
 The current release has one clearly distinct `MODERN RETRO` profile. Its room
