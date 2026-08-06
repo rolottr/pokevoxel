@@ -10,6 +10,7 @@ describe('check selector', () => {
   it('classifies edit and all declared tiers', () => {
     expect(planChecks({ tier: 'edit', changed: ['src/app/PokevoxelApp.ts'] }).stages.map((entry) => entry.name)).toEqual(['typecheck']);
     expect(planChecks({ tier: 'edit', changed: ['README.md'] }).stages).toEqual([]);
+    expect(planChecks({ tier: 'edit', changed: ['public/robots.txt'] }).stages).toEqual([]);
     expect(planChecks({ tier: 'edit', changed: ['scripts/run-checks.mjs'] }).stages.map((entry) => entry.name)).toEqual(['syntax:scripts/run-checks.mjs', 'targeted-unit']);
     expect(planChecks({ tier: 'goal', goal: 'G006' }).stages.map((entry) => entry.name)).toEqual(['typecheck', 'audio-unit', 'audio-browser', 'native-audio']);
     expect(planChecks({ tier: 'goal', goal: 'G007' }).stages.map((entry) => entry.name)).toEqual(['typecheck', 'voxel-unit', 'voxel-browser', 'native-voxel']);
@@ -29,6 +30,7 @@ describe('check selector', () => {
   it('fails closed for missing, unsafe, and unmapped edit paths', () => {
     expect(() => planChecks({ tier: 'edit' })).toThrow(/requires/);
     expect(() => planChecks({ tier: 'edit', changed: ['dist/a.js'] })).toThrow(/unsafe/);
+    expect(() => planChecks({ tier: 'edit', changed: ['public/runtime/game.js'] })).toThrow(/unsafe/);
     expect(() => planChecks({ tier: 'edit', changed: ['unknown.surface'] })).toThrow(/unmapped/);
   });
 

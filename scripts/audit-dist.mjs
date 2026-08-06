@@ -18,7 +18,7 @@ const digest = (file) => createHash('sha256').update(readFileSync(file)).digest(
 const files = readdirSync(source).sort();
 if (JSON.stringify(files) !== JSON.stringify(readdirSync(dist).sort())) throw new Error('dist/runtime file set differs from audited public/runtime');
 for (const file of files) if (digest(join(source, file)) !== digest(join(dist, file))) throw new Error(`dist runtime file differs from audited source: ${file}`);
-for (const file of ['_headers']) {
+for (const file of ['_headers', 'robots.txt', 'sitemap.xml', 'assets/pokevoxel.jpg']) {
   const sourceFile = join(product, 'public', file);
   const distFile = join(product, 'dist', file);
   if (!existsSync(sourceFile) || !existsSync(distFile)) throw new Error(`Cloudflare static asset is missing: ${file}`);
@@ -42,5 +42,15 @@ if (!wrangler.includes('"not_found_handling": "single-page-application"')) {
 const html = readFileSync(join(product, 'dist', 'index.html'), 'utf8');
 if (html.includes('/pokevoxel/')) throw new Error('Production index still references the retired /pokevoxel/ base.');
 if (!html.match(/(?:src|href)="\/assets\//)) throw new Error('Production index does not reference root-based Vite assets.');
+for (const metadata of [
+  '<link rel="canonical" href="https://pokevoxel.xyz/"',
+  '<meta property="og:image" content="https://pokevoxel.xyz/assets/pokevoxel.jpg"',
+  '<meta name="twitter:card" content="summary_large_image"',
+  '<script type="application/ld+json">',
+]) if (!html.includes(metadata)) throw new Error(`Production index omits SEO metadata: ${metadata}`);
+const robots = readFileSync(join(product, 'dist', 'robots.txt'), 'utf8');
+if (!robots.includes('Sitemap: https://pokevoxel.xyz/sitemap.xml')) throw new Error('Production robots.txt omits the canonical sitemap.');
+const sitemap = readFileSync(join(product, 'dist', 'sitemap.xml'), 'utf8');
+if (!sitemap.includes('<loc>https://pokevoxel.xyz/</loc>')) throw new Error('Production sitemap omits the canonical homepage.');
 console.log(`Dist runtime audit passed: ${files.length} copied runtime files match the audited payload.`);
-console.log('Cloudflare Worker Assets audit passed: root assets, isolation headers, cache policy, and Wrangler SPA fallback are present without a conflicting _redirects rule.');
+console.log('Cloudflare Worker Assets audit passed: root assets, SEO metadata, crawler files, isolation headers, cache policy, and Wrangler SPA fallback are present without a conflicting _redirects rule.');

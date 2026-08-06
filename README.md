@@ -2,6 +2,8 @@
 
 Pokevoxel is an **unofficial fork/integration for the browser** that brings a user-owned Pokemon Red, Blue, or Yellow cartridge into the voxel presentation of Dramatic Shape. The game, ROM validation, import, saves, and rendering run locally in the browser.
 
+![Pokevoxel rendering Pokemon Yellow's Pallet Town as a colorful voxel diorama](public/assets/pokevoxel.jpg)
+
 > Bring your own original 1 MiB US Pokemon Red, Blue, or Yellow Game Boy ROM. No ROM or extracted proprietary game data is included.
 
 Supported canonical US ROM SHA-1 fingerprints:

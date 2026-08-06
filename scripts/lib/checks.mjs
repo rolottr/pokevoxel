@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
 
 const forbidden = /(?:^|\/)(?:\.pokevoxel-test-data|dist|public\/runtime|runtime-cache|cache|node_modules|\.git)(?:\/|$)|\.(?:gb|gbc|gba|sav|srm|love)$/i;
-const directoryRoots = [['src/', 'source'], ['runtime/', 'runtime'], ['scripts/', 'scripts'], ['tests/', 'tests'], ['docs/', 'docs']];
+const directoryRoots = [['src/', 'source'], ['runtime/', 'runtime'], ['scripts/', 'scripts'], ['tests/', 'tests'], ['docs/', 'docs'], ['public/', 'static']];
 const exactRoots = new Map([['package.json', 'config'], ['package-lock.json', 'config'], ['tsconfig.json', 'config'], ['vite.config.ts', 'config'], ['playwright.config.ts', 'config'], ['vitest.config.ts', 'config'], ['upstream-lock.json', 'config'], ['runtime-allowlist.txt', 'config'], ['runtime-exclusions.txt', 'config'], ['README.md', 'docs'], ['index.html', 'source'], ['.gitignore', 'config']]);
 const browserScripts = {
   'audio-browser': ['--private-audio', '--audio-scenarios'],
