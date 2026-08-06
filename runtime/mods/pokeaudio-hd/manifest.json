@@ -1,0 +1,18 @@
+{
+  "id": "pokeaudio-hd",
+  "name": "PokeAudio HD",
+  "version": "1.0.0",
+  "api": 2,
+  "entry": "main.lua",
+  "profile": "content",
+  "category": "AUDIO",
+  "game_version": ">=0.0.0-0 <2.0.0",
+  "priority": 50,
+  "always_loaded": true,
+  "permissions": ["engine_internals"],
+  "dependencies": [],
+  "optional_dependencies": [],
+  "conflicts": [],
+  "affects_link": false,
+  "description": "Modern-retro rendering for the original Gen 1 chip music, cries, and effects."
+}

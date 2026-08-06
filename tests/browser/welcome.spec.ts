@@ -18,6 +18,10 @@ test('opens the production welcome screen at the root deployment path', async ({
   await expect(page.getByTestId('rom-sha-list')).toContainText('ea9bcae617fdf159b045185467ae58b2e4a48b9a');
   await expect(page.getByTestId('rom-sha-list')).toContainText('d7037c83e1ae5b39bde3c30787637ba1d4c48ce2');
   await expect(page.getByTestId('rom-sha-list')).toContainText('cc7d03262ebfaf2f06772c1a480c7d9d5f4a38e1');
+  const hdAudio = page.getByTestId('hd-audio-checkbox');
+  await expect(hdAudio).toBeChecked();
+  await hdAudio.uncheck();
+  await expect(hdAudio).not.toBeChecked();
 });
 
 test('activates the accessible ROM picker by keyboard without exposing the raw input', async ({ page }) => {
@@ -95,7 +99,7 @@ test('accepts a synthetic drop locally without leaking its generated filename or
   expect(requests).toEqual([]);
 });
 
-test('keeps focus order meaningful from the picker to the visible import action', async ({ page }) => {
+test('keeps focus order meaningful from the picker through audio choice to the visible import action', async ({ page }) => {
   await openWelcome(page);
   await page.locator('#gen1-rom-input').setInputFiles({
     name: privateLookingName,
@@ -105,6 +109,8 @@ test('keeps focus order meaningful from the picker to the visible import action'
   await expect(page.locator('#app')).toHaveAttribute('data-shell-state', 'error');
   const picker = page.getByTestId('rom-drop-target');
   await picker.focus();
+  await page.keyboard.press('Tab');
+  await expect(page.getByTestId('hd-audio-checkbox')).toBeFocused();
   await page.keyboard.press('Tab');
   await expect(page.getByRole('button', { name: /choose another file/i })).toBeFocused();
 });

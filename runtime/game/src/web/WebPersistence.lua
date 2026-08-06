@@ -48,8 +48,12 @@ local function summary(phase, bundle)
  local save,slot=selectedSave(bundle)
  emitSummary(phase,save,slot,bundle["options.lua"])
 end
-local function snapshot(domain) return {domain=domain,files=capture()} end
-function W.request(domain) if not web() then return end;if domain=="save" then W.options=nil;W.saves[#W.saves+1]=snapshot("save") else W.options=snapshot("options") end end
+local function snapshot(domain,action) return {domain=domain,files=capture(),action=action} end
+function W.request(domain,action)
+ if not web() then return end
+ if action~=nil and action~="restart-mods" then error("POKEVOXEL_PERSISTENCE_ACTION") end
+ if domain=="save" then W.options=nil;W.saves[#W.saves+1]=snapshot("save") else W.options=snapshot("options",action) end
+end
 local function nextGen() local seq=love.filesystem.getInfo(SEQ) and love.filesystem.read(SEQ); local max=tonumber(seq or "0") or 0;for _,n in ipairs(love.filesystem.getDirectoryItems(ROOT) or {}) do max=math.max(max,tonumber(n) or 0) end;max=max+1;assert(love.filesystem.write(SEQ,tostring(max)));return tostring(max) end
 local function ack(fn,id,domain) local got,ok,err=fn(id,domain);if err then return nil,err end;if got~=id or ok~=id then return nil,"POKEVOXEL_SYNC_STALE_ACK_MISMATCH" end;return true end
 local function pointers() local r={};for _,p in ipairs(P) do r[p]=love.filesystem.getInfo(p) and love.filesystem.read(p) end;return r end
@@ -61,7 +65,7 @@ local function commit(s,dataSync,markerSync)
  local id=Events.requestSync();local ok,code=ack(dataSync,id);if not ok then return nil,code end
  local old=pointers();local ptr=Json.encode({schema=SCHEMA,active=g,previous=W.previous});assert(love.filesystem.write(P[2],ptr));if old[P[1]] then assert(love.filesystem.write(P[3],old[P[1]])) end;assert(love.filesystem.write(P[1],ptr));id=Events.requestPersistence(s.domain);ok,code=ack(markerSync,id,s.domain);if not ok then restorePointers(old);return nil,code end;W.previous=g
  summary("committed",s.files)
- return true
+ return true,nil,id
 end
 function W.hydrate() if not web() then return false end;for _,p in ipairs(P) do local raw=love.filesystem.getInfo(p) and love.filesystem.read(p); local q=raw and Json.decode(raw);if type(q)=="table" then for _,g in ipairs({q.active,q.previous}) do local m=g and manifest(g);if m then local wanted={};for _,e in ipairs(m.files) do wanted[e.path]=true end;local live={};collect("",live);for _,x in ipairs(live) do if not wanted[x] and love.filesystem.remove then love.filesystem.remove(x) end end;for _,e in ipairs(m.files) do local par=e.path:match("^(.*)/[^/]+$");if par then love.filesystem.createDirectory(par) end;love.filesystem.write(e.path,assert(love.filesystem.read(ROOT..g.."/files/"..e.path))) end;local bundle={};for _,e in ipairs(m.files) do bundle[e.path]=assert(love.filesystem.read(ROOT..g.."/files/"..e.path)) end;W.previous=g;summary("restored",bundle);Events.emit("persistence-restored","{}");return true end end end end;return false end
 -- This is called only by Game:restoreSave after the title's real Continue
@@ -74,6 +78,19 @@ function W.restoredLive(save)
  local slot=active and version.."-"..active or version.."-default"
  emitSummary("resumed",save,slot,Serializer.encode(save.options or {}))
 end
-function W.update(dataSync,markerSync) if W.worker or (#W.saves==0 and not W.options) then return end;local s=table.remove(W.saves,1) or W.options; if s==W.options then W.options=nil end;W.worker=coroutine.create(function() local ok,c=commit(s,dataSync,markerSync);if not ok and c=="POKEVOXEL_SYNC_ABORTED" then ok,c=commit(s,dataSync,markerSync) end;if not ok then Events.emit("persistence-failed",string.format('{"code":"%s"}',c or "POKEVOXEL_PERSISTENCE_FAILED")) end end) end
+function W.update(dataSync,markerSync)
+ if W.worker or (#W.saves==0 and not W.options) then return end
+ local s=table.remove(W.saves,1) or W.options
+ if s==W.options then W.options=nil end
+ W.worker=coroutine.create(function()
+  local ok,c,id=commit(s,dataSync,markerSync)
+  if not ok and c=="POKEVOXEL_SYNC_ABORTED" then ok,c,id=commit(s,dataSync,markerSync) end
+  if not ok then
+   Events.emit("persistence-failed",string.format('{"code":"%s"}',c or "POKEVOXEL_PERSISTENCE_FAILED"))
+  elseif s.action=="restart-mods" then
+   Events.emit("mod-restart-ready",string.format('{"id":%d}',id))
+  end
+ end)
+end
 function W.resume() if not W.worker then return end;local ok,e=coroutine.resume(W.worker);if not ok then Events.emit("persistence-failed",'{"code":"POKEVOXEL_PERSISTENCE_FAILED"}') end;if coroutine.status(W.worker)=="dead" then W.worker=nil end end
 return W

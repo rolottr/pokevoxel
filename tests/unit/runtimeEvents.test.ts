@@ -25,6 +25,13 @@ it('accepts only named persistence domains with an exact positive request id', (
   expect(parseRuntimeEvent(`${RUNTIME_EVENT_PREFIX}${invalid}`)).toBeUndefined();
 });
 
+it('accepts only the persistence-correlated mod restart marker', () => {
+  const line = (id: number, payload: unknown) => `${RUNTIME_EVENT_PREFIX}${JSON.stringify({ version: 1, id, type: 'mod-restart-ready', frame: 0, payload })}`;
+  expect(parseRuntimeEvent(line(9, { id: 4 }))?.type).toBe('mod-restart-ready');
+  expect(parseRuntimeEvent(line(10, { id: 0 }))).toBeUndefined();
+  expect(parseRuntimeEvent(line(11, { id: 4, path: 'options.lua' }))).toBeUndefined();
+});
+
 it('accepts the privacy-safe ordinary-save restoration marker', () => {
   const payload = JSON.stringify({ version: 1, id: 10, type: 'persistence-restored', frame: 0, payload: {} });
   expect(parseRuntimeEvent(`${RUNTIME_EVENT_PREFIX}${payload}`)?.type).toBe('persistence-restored');
@@ -49,12 +56,21 @@ it('accepts a bounded summary emitted only after title Continue restores the sav
 });
 
 it('accepts only the bounded semantic audio probe and rejects content-bearing payloads', () => {
-  const payload = { scene: 'battle', queued: 2, playing: true, effect: 'low-hp', effectId: 7, lowHp: true, musicSources: 1, pcmPeak: 125000, pcmFrames: 4096, pcmNonzero: true, musicVolume: 7, sfxVolume: 7, lowHpActivations: 1, victoryActivations: 1 };
+  const payload = { scene: 'battle', renderer: 'pokeaudio-hd', queued: 2, playing: true, effect: 'low-hp', effectId: 7, lowHp: true, musicSources: 1, pcmPeak: 125000, pcmFrames: 4096, pcmNonzero: true, musicVolume: 7, sfxVolume: 7, lowHpActivations: 1, victoryActivations: 1 };
   const valid = JSON.stringify({ version: 1, id: 15, type: 'audio-probe', frame: 0, payload });
   expect(parseRuntimeEvent(`${RUNTIME_EVENT_PREFIX}${valid}`)?.type).toBe('audio-probe');
   // Extra keys are rejected so a future producer cannot add a song/path/PCM field.
   expect(parseRuntimeEvent(`${RUNTIME_EVENT_PREFIX}${JSON.stringify({ version: 1, id: 16, type: 'audio-probe', frame: 0, payload: { ...payload, song: 'Music_Battle' } })}`)).toBeUndefined();
   expect(parseRuntimeEvent(`${RUNTIME_EVENT_PREFIX}${JSON.stringify({ version: 1, id: 17, type: 'audio-probe', frame: 0, payload: { ...payload, musicVolume: 8 } })}`)).toBeUndefined();
+  expect(parseRuntimeEvent(`${RUNTIME_EVENT_PREFIX}${JSON.stringify({ version: 1, id: 18, type: 'audio-probe', frame: 0, payload: { ...payload, renderer: 'other' } })}`)).toBeUndefined();
+});
+
+it('accepts only the persisted HD or Stock homepage preference', () => {
+  const line = (id: number, payload: unknown) => `${RUNTIME_EVENT_PREFIX}${JSON.stringify({ version: 1, id, type: 'audio-preference', frame: 0, payload })}`;
+  expect(parseRuntimeEvent(line(19, { renderer: 'pokeaudio-hd' }))?.type).toBe('audio-preference');
+  expect(parseRuntimeEvent(line(20, { renderer: 'stock' }))?.type).toBe('audio-preference');
+  expect(parseRuntimeEvent(line(21, { renderer: 'other' }))).toBeUndefined();
+  expect(parseRuntimeEvent(line(22, { renderer: 'stock', path: 'options.lua' }))).toBeUndefined();
 });
 
 

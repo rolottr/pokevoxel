@@ -36,6 +36,101 @@ ChipSynth.MUSIC_BUFFER_COUNT = MUSIC_BUFFER_COUNT
 local channelVolume = { 1, 1, 1, 1 }
 local channelPitch = { 1, 1, 1, 1 }
 
+-- Optional presentation renderer.  The descriptor is deliberately plain so
+-- ChipAudio can send it through a love.thread Channel unchanged.  The ROM
+-- interpreter remains in this module; a renderer can only reshape samples
+-- after the original event/register/timing decisions have already happened.
+local rendererDescriptor
+local rendererModule
+
+local function copySerializable(value, depth)
+  depth = depth or 0
+  if depth > 8 then return nil, "renderer config is too deeply nested" end
+  local kind = type(value)
+  if kind == "nil" or kind == "string" or kind == "boolean" then return value end
+  if kind == "number" then
+    if value ~= value or value == math.huge or value == -math.huge then
+      return nil, "renderer config numbers must be finite"
+    end
+    return value
+  end
+  if kind ~= "table" or getmetatable(value) ~= nil then
+    return nil, "renderer config must contain plain serializable values"
+  end
+  local result = {}
+  for key, child in pairs(value) do
+    if type(key) ~= "string" and type(key) ~= "number" then
+      return nil, "renderer config keys must be strings or numbers"
+    end
+    local copied, err = copySerializable(child, depth + 1)
+    if err then return nil, err end
+    result[key] = copied
+  end
+  return result
+end
+
+local function validateRendererDescriptor(descriptor)
+  if type(descriptor) ~= "table" then return nil, "renderer descriptor must be a table" end
+  local id = descriptor.id
+  local path = descriptor.path
+  if type(id) ~= "string" or not id:match("^[%w][%w_.%-]*$") then
+    return nil, "renderer id must use letters, numbers, dot, underscore, or dash"
+  end
+  if type(path) ~= "string" or not path:match("^mods/[%w_.%-]+/[%w_./%-]+%.lua$")
+      or path:find("..", 1, true) then
+    return nil, "renderer path must be a safe Lua file inside mods/"
+  end
+  local config, err = copySerializable(descriptor.config or {})
+  if err then return nil, err end
+  return { id = id, path = path, config = config }
+end
+
+local function loadRenderer(descriptor)
+  local chunk, loadErr = love.filesystem.load(descriptor.path)
+  if not chunk then return nil, loadErr or "renderer module could not be loaded" end
+  local ok, module = pcall(chunk)
+  if not ok then return nil, module end
+  if type(module) ~= "table" or type(module.new) ~= "function" then
+    return nil, "renderer module must return a table with new(config)"
+  end
+  local created, instance = pcall(module.new, copySerializable(descriptor.config))
+  if not created then return nil, instance end
+  if type(instance) ~= "table" then return nil, "renderer new(config) must return a table" end
+  return module
+end
+
+function ChipSynth.setRenderer(descriptor)
+  if descriptor == nil then
+    rendererDescriptor, rendererModule = nil, nil
+    return true
+  end
+  local validated, validationErr = validateRendererDescriptor(descriptor)
+  if not validated then return false, validationErr end
+  local module, loadErr = loadRenderer(validated)
+  if not module then return false, tostring(loadErr) end
+  rendererDescriptor, rendererModule = validated, module
+  return true
+end
+
+function ChipSynth.getRendererId()
+  return rendererDescriptor and rendererDescriptor.id or "stock"
+end
+
+function ChipSynth.getRendererDescriptor()
+  if not rendererDescriptor then return nil end
+  return copySerializable(rendererDescriptor)
+end
+
+local function newRenderer()
+  if not rendererModule or not rendererDescriptor then return nil, "stock" end
+  local ok, instance = pcall(rendererModule.new,
+    copySerializable(rendererDescriptor.config))
+  if ok and type(instance) == "table" then
+    return instance, rendererDescriptor.id
+  end
+  return nil, "stock"
+end
+
 local function clampScale(scale)
   return math.max(0, tonumber(scale) or 0)
 end
@@ -584,12 +679,22 @@ function Channel:sample()
 
   local gain = channelVolume[self.hardware] or 1
   if event.drum then
-    return self:sampleDrum(event, sampleIndex) * gain
+    local value = self:sampleDrum(event, sampleIndex) * gain
+    local renderer = self.engine.renderer
+    if renderer and renderer.noise then
+      return renderer:noise(value, self, event)
+    end
+    return value
   end
   local volume = envelopeVolume(
     event.volume or 0, event.fade or 0, event.elapsed)
   if event.noise then
-    return self:sampleNoise(event.noiseParameter) * volume / 15 * gain
+    local value = self:sampleNoise(event.noiseParameter) * volume / 15 * gain
+    local renderer = self.engine.renderer
+    if renderer and renderer.noise then
+      return renderer:noise(value, self, event)
+    end
+    return value
   end
 
   local register = event.register
@@ -625,7 +730,13 @@ function Channel:sample()
     -- a def-local program may omit its wave table entirely
     if not wave then return 0 end
     local index = math.min(32, math.floor(phase * 32) + 1)
-    return wave[index] * event.waveLevel * gain
+    local value = wave[index] * event.waveLevel * gain
+    local renderer = self.engine.renderer
+    if renderer and renderer.wave then
+      return renderer:wave(value, wave, phase, event.waveLevel, gain,
+        self, event)
+    end
+    return value
   end
   local duty = event.duty
   if type(duty) == "table" then
@@ -633,10 +744,14 @@ function Channel:sample()
   end
   local pattern = WAVE_PATTERN_TABLES[duty or 2] or WAVE_PATTERN_TABLES[2]
   local step = math.floor(phase * 8) % 8
-  if pattern[step + 1] == 0 then
-    return -volume / 15 * gain
+  local value = pattern[step + 1] == 0
+    and -volume / 15 * gain or volume / 15 * gain
+  local renderer = self.engine.renderer
+  if renderer and renderer.pulse then
+    return renderer:pulse(value, phase, frequency, duty or 2, volume, gain,
+      self, event)
   end
-  return volume / 15 * gain
+  return value
 end
 
 local Engine = {}
@@ -742,6 +857,7 @@ function Engine.new(data, header, options)
   else
     waves = readWaves(banks, audio, engineNumber)
   end
+  local activeRenderer, activeRendererId = newRenderer()
   local engine = setmetatable({
     banks = banks,
     tempo = 0x100,
@@ -752,6 +868,8 @@ function Engine.new(data, header, options)
     customDrums = chip and chip.drums or nil,
     noiseInstruments = {},
     channels = {},
+    renderer = activeRenderer,
+    rendererId = activeRendererId,
   }, Engine)
   for _, spec in ipairs(chip and chip.channels
       or headerChannels(banks, header)) do
@@ -773,6 +891,19 @@ function Engine.new(data, header, options)
   return engine
 end
 
+-- Replace presentation only. The interpreter, channel programs, event sample
+-- positions, phases, loop counters, and source all stay live for instant A/B.
+function Engine:refreshRenderer()
+  local activeRenderer, activeRendererId = newRenderer()
+  self.renderer = activeRenderer
+  self.rendererId = activeRendererId
+  return activeRendererId
+end
+
+function Engine:getRendererId()
+  return self.rendererId or "stock"
+end
+
 function Engine:finished()
   for _, channel in ipairs(self.channels) do
     if not channel.ended or channel.event then return false end
@@ -783,7 +914,11 @@ end
 function Engine:sample()
   local value = 0
   for _, channel in ipairs(self.channels) do value = value + channel:sample() end
-  return math.max(-1, math.min(1, value / 4))
+  value = math.max(-1, math.min(1, value / 4))
+  if self.renderer and self.renderer.processMono then
+    value = self.renderer:processMono(value)
+  end
+  return math.max(-1, math.min(1, value))
 end
 
 function Engine:sampleStereo()
@@ -791,11 +926,22 @@ function Engine:sampleStereo()
   for _, channel in ipairs(self.channels) do
     local value = channel:sample()
     local event = channel.event
-    if not event or event.panLeft ~= false then left = left + value end
-    if not event or event.panRight ~= false then right = right + value end
+    local panLeft = not event or event.panLeft ~= false
+    local panRight = not event or event.panRight ~= false
+    if self.renderer and self.renderer.mixChannel then
+      left, right = self.renderer:mixChannel(
+        left, right, value, channel, panLeft, panRight)
+    else
+      if panLeft then left = left + value end
+      if panRight then right = right + value end
+    end
   end
-  return math.max(-1, math.min(1, left / 4)),
-    math.max(-1, math.min(1, right / 4))
+  left, right = left / 4, right / 4
+  if self.renderer and self.renderer.processStereo then
+    left, right = self.renderer:processStereo(left, right)
+  end
+  return math.max(-1, math.min(1, left)),
+    math.max(-1, math.min(1, right))
 end
 
 function Engine:sampleChannel(number)

@@ -20,6 +20,13 @@ Loader.__index = Loader
 
 local MOD_STATE_FILE = "mod_state.lua" -- legacy migration only
 
+-- Browser builds expose only these audited, bundled mods. Keep discovery
+-- explicit: files that merely appear under mods/ must never become executable.
+local BUILTIN_MODS = {
+  { id = "DRAMATIC_SHAPE", path = "mods/dramatic-shape" },
+  { id = "pokeaudio-hd", path = "mods/pokeaudio-hd" },
+}
+
 -- walk a dotted target path without creating anything; the base view a
 -- registry folds against must never perturb Data on a mod-free boot
 local function resolvePath(root, path)
@@ -192,30 +199,35 @@ function Loader:_saveState()
 end
 
 function Loader:setEnabled(id, enabled)
-  if not self.mods[id] then return false end
+  local mod = self.mods[id]
+  if not mod then return false end
+  if mod.manifest.always_loaded then
+    self.disabled[id] = nil
+    mod.enabled = true
+    if enabled == false then return false end
+    self:_saveState()
+    return true
+  end
   self.disabled[id] = not enabled
-  self.mods[id].enabled = enabled
+  mod.enabled = enabled
   self:_saveState()
   return true
 end
 
 function Loader:_discover()
-  -- Pokevoxel ships one audited built-in mod. Do not enumerate arbitrary
-  -- directories: there is no external installer/store surface in this product,
-  -- and a second manifest must never become executable merely by appearing in
-  -- the archive or save mount.
-  local path = "mods/dramatic-shape"
-  local manifest, err = readManifest(self.fs, path)
-  if not manifest then
-    self.errors[#self.errors + 1] = "DRAMATIC_SHAPE: built-in manifest missing"
-    Logger.error("built-in mod %s failed: %s", path, tostring(err))
-    return
+  -- Do not enumerate arbitrary directories: there is no external installer or
+  -- store surface in this product.
+  for _, builtin in ipairs(BUILTIN_MODS) do
+    local manifest, err = readManifest(self.fs, builtin.path)
+    if not manifest then
+      self.errors[#self.errors + 1] = builtin.id .. ": built-in manifest missing"
+      Logger.error("built-in mod %s failed: %s", builtin.path, tostring(err))
+    elseif manifest.id ~= builtin.id then
+      self.errors[#self.errors + 1] = builtin.id .. ": built-in id mismatch"
+    else
+      self.mods[builtin.id] = { manifest = manifest, path = builtin.path }
+    end
   end
-  if manifest.id ~= "DRAMATIC_SHAPE" then
-    self.errors[#self.errors + 1] = "DRAMATIC_SHAPE: built-in id mismatch"
-    return
-  end
-  self.mods.DRAMATIC_SHAPE = { manifest = manifest, path = path }
 end
 
 -- ------- validate and resolve
@@ -920,6 +932,17 @@ function Loader:load(data)
       end
     end
   end
+  -- Built-in services execute every boot. Normalize an obsolete generic
+  -- disable preference before entry chunks run so their exports and schemas
+  -- are present for the whole session.
+  local normalizedAlwaysLoaded = false
+  for id, mod in pairs(self.mods) do
+    if mod.manifest.always_loaded and self.disabled[id] then
+      self.disabled[id] = nil
+      normalizedAlwaysLoaded = true
+    end
+  end
+  if normalizedAlwaysLoaded then self:_saveState() end
   for id, mod in pairs(self.mods) do
     mod.enabled = not self.disabled[id]
     mod.state = mod.enabled and "pending" or "disabled"

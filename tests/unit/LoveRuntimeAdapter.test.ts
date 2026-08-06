@@ -31,4 +31,14 @@ describe('LoveRuntimeAdapter ROM staging boundary', () => {
     };
     expect(Object.keys(capabilities).sort()).toEqual(['dispose', 'persistentFsReady', 'resumeAudio', 'signalFocus', 'signalStart', 'stageRom', 'syncPersistentFs']);
   });
+  it('signals Start with only the two fixed audio renderer values', async () => {
+    let selected: string | undefined;
+    const adapter = new LoveRuntimeAdapter({
+      stageRom: () => Promise.resolve(), persistentFsReady: () => Promise.resolve(), syncPersistentFs: () => Promise.resolve(),
+      resumeAudio: () => Promise.resolve(), signalStart: (renderer) => { selected = renderer; }, signalFocus: () => undefined, dispose: () => undefined,
+    });
+    await adapter.signalStart('stock');
+    expect(selected).toBe('stock');
+    await expect(adapter.signalStart('other' as 'stock')).rejects.toThrow('POKEVOXEL_AUDIO_RENDERER_INVALID');
+  });
 });

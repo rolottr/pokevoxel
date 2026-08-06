@@ -1,6 +1,7 @@
 import type { ShellState } from '../app/PokevoxelApp';
 import { ROM_PROFILES, type RomVersion } from '../import/romValidation';
 import type { PersistenceErrorCode, PersistenceStatus } from '../persistence/DurableGenerationStore';
+import type { AudioRendererPreference } from '../runtime/LoveRuntimeAdapter';
 import type { AudioProbe, BattleProbe, BattleReturnProbe, FirstPersonParityProbe, FirstPersonProbe, FirstPersonReleaseProbe, PersistenceSummary, VoxelOcclusionProbe, VoxelProbe, WaterProbe } from '../runtime/runtimeEvents';
 
 export type WelcomeScreenOptions = {
@@ -11,6 +12,8 @@ export type WelcomeScreenOptions = {
   onClearRebuildableCache: () => void;
   onStartGame: () => void;
   onReenableAudio: () => void;
+  audioRenderer: AudioRendererPreference;
+  onAudioRendererChange: (renderer: AudioRendererPreference) => void;
 };
 
 function editionLabel(version: RomVersion | undefined): string { return ROM_PROFILES.find((profile) => profile.id === version)?.label ?? 'Gen I'; }
@@ -49,7 +52,7 @@ export function shouldOfferCacheRecovery(code: PersistenceErrorCode | undefined)
   return code === 'PERSISTENCE_QUOTA_EXCEEDED' || code === 'PERSISTENCE_PERMISSION_DENIED';
 }
 
-export function renderWelcomeScreen({ model, onFile, onReset, onClearAcceptedRom, onClearRebuildableCache, onStartGame, onReenableAudio }: WelcomeScreenOptions): HTMLElement {
+export function renderWelcomeScreen({ model, onFile, onReset, onClearAcceptedRom, onClearRebuildableCache, onStartGame, onReenableAudio, audioRenderer, onAudioRendererChange }: WelcomeScreenOptions): HTMLElement {
   const shell = document.createElement('main');
   shell.className = `welcome-shell shell-${model.state}`;
   shell.dataset.shellState = model.state;
@@ -219,6 +222,23 @@ export function renderWelcomeScreen({ model, onFile, onReset, onClearAcceptedRom
     const digest = document.createElement('code'); digest.textContent = profile.sha1;
     item.append(label, digest); hashes.append(item);
   }
+  const audioChoice = document.createElement('label');
+  audioChoice.className = 'audio-driver-choice';
+  audioChoice.htmlFor = 'pokeaudio-hd-choice';
+  const audioInput = document.createElement('input');
+  audioInput.id = 'pokeaudio-hd-choice';
+  audioInput.type = 'checkbox';
+  audioInput.checked = audioRenderer === 'pokeaudio-hd';
+  audioInput.disabled = model.state === 'starting';
+  audioInput.dataset.testid = 'hd-audio-checkbox';
+  audioInput.addEventListener('change', () => onAudioRendererChange(audioInput.checked ? 'pokeaudio-hd' : 'stock'));
+  const audioCopy = document.createElement('span');
+  const audioTitle = document.createElement('strong');
+  audioTitle.textContent = 'Use PokeAudio HD';
+  const audioHelp = document.createElement('small');
+  audioHelp.textContent = 'Uncheck for the original Stock audio driver.';
+  audioCopy.append(audioTitle, audioHelp);
+  audioChoice.append(audioInput, audioCopy);
   const status = document.createElement('p');
   status.className = 'shell-status';
   status.dataset.testid = model.state === 'error' ? 'import-error' : 'app-state';
@@ -249,7 +269,7 @@ export function renderWelcomeScreen({ model, onFile, onReset, onClearAcceptedRom
     }
   }
   const footer = document.createElement('p'); footer.id = 'rom-privacy'; footer.className = 'footer-note'; footer.textContent = 'No account. No cloud library. No bundled game data.';
-  panel.append(brand, privacy, picker, requirements, hashes, status, actions, footer);
+  panel.append(brand, privacy, picker, requirements, hashes, audioChoice, status, actions, footer);
   shell.append(panel);
   return shell;
 }

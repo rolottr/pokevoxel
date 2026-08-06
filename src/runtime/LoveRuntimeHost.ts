@@ -1,6 +1,6 @@
 import { clearRomBuffer } from '../import/romValidation';
 import { DurableGenerationStore, classifyPersistenceError, type PersistenceDomain } from '../persistence/DurableGenerationStore';
-import { LoveRuntimeAdapter, type LoveRuntimeCapabilities } from './LoveRuntimeAdapter';
+import { LoveRuntimeAdapter, type AudioRendererPreference, type LoveRuntimeCapabilities } from './LoveRuntimeAdapter';
 import { parseRuntimeEvent, type RuntimeEvent } from './runtimeEvents';
 
 type LoveFactory = (module: RuntimeModule) => Promise<unknown> | unknown;
@@ -154,11 +154,11 @@ export class LoveRuntimeHost {
     finally { this.dispose(); }
   }
 
-  public async startGame(): Promise<void> {
+  public async startGame(renderer: AudioRendererPreference = 'pokeaudio-hd'): Promise<void> {
     const adapter = this.active?.adapter; if (!adapter) throw new Error('POKEVOXEL_RUNTIME_NOT_RUNNING');
     await adapter.resumeAudio();
     this.audioUnlocked = true;
-    await adapter.signalStart();
+    await adapter.signalStart(renderer);
   }
   /** Re-enables an already-unlocked context without restarting or re-signaling Lua. */
   public async resumeAudioAfterInterruption(): Promise<void> {

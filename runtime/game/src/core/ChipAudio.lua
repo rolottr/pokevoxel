@@ -58,9 +58,37 @@ local currentMusic
 -- Browser telemetry is deliberately semantic: it never carries a song label,
 -- source path, ROM byte, or PCM sample.  BrowserBootstrap polls this actual
 -- queue/source state and publishes a bounded event for the E2E audio gate.
-local telemetry = { scene = "none", effect = "none", effectId = 0, lowHp = false, pcmPeak = 0, pcmFrames = 0, pcmNonzero = false, lowHpActivations = 0, victoryActivations = 0 }
+local telemetry = { scene = "none", renderer = "stock", effect = "none", effectId = 0, lowHp = false, pcmPeak = 0, pcmFrames = 0, pcmNonzero = false, lowHpActivations = 0, victoryActivations = 0 }
 local pendingBuf -- a current-gen buffer popped from the worker but not yet
                  -- queued because the Source was momentarily full
+local liveRendererSwitch = false
+local LIVE_SWITCH_QUEUE_TARGET = 2
+
+local function queueTarget()
+  return liveRendererSwitch and LIVE_SWITCH_QUEUE_TARGET or MUSIC_BUFFER_COUNT
+end
+
+-- QueueableSource exposes how many buffers are still owned by playback. Keep
+-- renderer ids in the same order so telemetry changes only when the first
+-- buffer that can actually be heard changes, never when a future worker buffer
+-- merely arrives. Stock-only boots retain the deep stall-tolerance queue.
+local function syncAudibleRenderer(music, queued)
+  if not music then return end
+  local renderers = music.queuedRenderers or {}
+  music.queuedRenderers = renderers
+  while #renderers > queued do table.remove(renderers, 1) end
+  local audible = renderers[1]
+  if audible == "stock" or audible == "pokeaudio-hd" then
+    telemetry.renderer = audible
+  end
+end
+
+local function noteQueuedRenderer(music, renderer)
+  if not music then return end
+  renderer = renderer == "pokeaudio-hd" and renderer or "stock"
+  music.queuedRenderers[#music.queuedRenderers + 1] = renderer
+  syncAudibleRenderer(music, #music.queuedRenderers)
+end
 
 -- Music holds playback while a fanfare owns the music channels (#398).
 -- Pausing the Source is not enough on its own: this module is what starts a
@@ -76,6 +104,32 @@ local musicHeld = false
 
 local worker, cmdCh, outCh
 local workerReady -- nil = untried, true = running, false = unavailable
+
+-- Install a serializable sample renderer for both the main-thread effect path
+-- and the worker music path.  Validation happens before the active renderer
+-- changes, so a malformed mod leaves the current stock/working renderer live.
+function ChipAudio.setRenderer(descriptor)
+  if descriptor and descriptor.config
+      and descriptor.config.liveSwitch == true then
+    liveRendererSwitch = true
+  end
+  local ok, err = ChipSynth.setRenderer(descriptor)
+  if not ok then return false, err end
+  if currentMusic and currentMusic.engine
+      and currentMusic.engine.refreshRenderer then
+    currentMusic.engine:refreshRenderer()
+  end
+  if workerReady and cmdCh then
+    cmdCh:push({ cmd = "renderer",
+      renderer = ChipSynth.getRendererDescriptor(),
+      liveSwitch = liveRendererSwitch })
+  end
+  return true, ChipSynth.getRendererId()
+end
+
+function ChipAudio.getRendererId()
+  return ChipSynth.getRendererId()
+end
 
 local function ensureWorker()
   if workerReady ~= nil then return workerReady end
@@ -158,11 +212,18 @@ local function fillSync(limit)
   if not music or not music.engine or music.engine:finished() then return end
   limit = limit or MUSIC_FILL_PER_CALL
   local free = music.source:getFreeBufferCount()
-  while free > 0 and limit > 0 and not music.engine:finished() do
+  local queued = MUSIC_BUFFER_COUNT - free
+  syncAudibleRenderer(music, queued)
+  local target = queueTarget()
+  while free > 0 and queued < target and limit > 0
+      and not music.engine:finished() do
     local sd, pcm = ChipSynth.soundData(music.engine, MUSIC_BUFFER_SAMPLES, 2)
+    local renderer = music.engine:getRendererId()
     recordPcm(pcm)
     music.source:queue(sd)
+    noteQueuedRenderer(music, renderer)
     free = free - 1
+    queued = queued + 1
     limit = limit - 1
   end
 end
@@ -178,7 +239,7 @@ local function playMusicSync(data, header, allowLoops)
   if not ok2 then return nil, source end
   ChipAudio.stopMusic()
   currentMusic = { source = source, engine = engine, threaded = false,
-                   started = true, finished = false }
+                   started = true, finished = false, queuedRenderers = {} }
   fillSync(MUSIC_FILL_INITIAL)
   if not musicHeld then source:play() end
   return source
@@ -208,10 +269,13 @@ function ChipAudio.playMusic(data, header, allowLoops)
   local gen = musicGen
   cmdCh:push({ cmd = "play", gen = gen, header = header,
                allowLoops = allowLoops, audio = slimAudio(data),
+               renderer = ChipSynth.getRendererDescriptor(),
+               liveSwitch = liveRendererSwitch,
                channelVolumes = ChipSynth.getChannelVolumes(),
                channelPitches = ChipSynth.getChannelPitches() })
   currentMusic = { source = source, gen = gen, threaded = true,
-                   started = false, finished = false }
+                   started = false, finished = false,
+                   queuedRenderers = {} }
   -- playback starts in update() once the first buffer arrives (~1 frame)
   return source
 end
@@ -235,6 +299,9 @@ local function updateThreaded()
   end
   while true do
     local free = m.source:getFreeBufferCount()
+    local queued = MUSIC_BUFFER_COUNT - free
+    syncAudibleRenderer(m, queued)
+    if queued >= queueTarget() then break end
     local buf = pendingBuf
     if buf then pendingBuf = nil else buf = outCh:pop() end
     if not buf then break end
@@ -245,10 +312,13 @@ local function updateThreaded()
     elseif buf.error then
       require("src.core.Logger").warn("chip audio: %s", tostring(buf.error))
       m.finished = true
+    elseif buf.warning then
+      require("src.core.Logger").warn("chip audio: %s", tostring(buf.warning))
     elseif buf.sd then
       if free > 0 then
         recordPcm(buf.pcm)
         m.source:queue(buf.sd)
+        noteQueuedRenderer(m, buf.renderer)
       else
         pendingBuf = buf -- Source full; hold this one for next frame
         break
@@ -329,11 +399,15 @@ function ChipAudio.audioProbe()
   local m = currentMusic
   if m and m.source then
     local ok, free = pcall(m.source.getFreeBufferCount, m.source)
-    if ok and type(free) == "number" then queued = math.max(0, math.min(MUSIC_BUFFER_COUNT, MUSIC_BUFFER_COUNT - free)) end
+    if ok and type(free) == "number" then
+      queued = math.max(0, math.min(MUSIC_BUFFER_COUNT, MUSIC_BUFFER_COUNT - free))
+      syncAudibleRenderer(m, queued)
+    end
     local isPlaying, value = pcall(m.source.isPlaying, m.source)
     playing = isPlaying and value == true or false
   end
-  return { scene = telemetry.scene, queued = queued, playing = playing,
+  return { scene = telemetry.scene, renderer = telemetry.renderer,
+           queued = queued, playing = playing,
            effect = telemetry.effect, effectId = telemetry.effectId,
            lowHp = telemetry.lowHp, musicSources = m and 1 or 0,
            pcmPeak = telemetry.pcmPeak, pcmFrames = telemetry.pcmFrames,

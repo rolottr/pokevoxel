@@ -218,11 +218,11 @@ describe('LoveRuntimeHost startup ownership', () => {
     const order: string[] = [];
     const { host, canvas } = installRunningRuntime({
       resumeAudio: async () => { order.push('resume:start'); await Promise.resolve(); order.push('resume:end'); },
-      signalStart: () => { order.push('signal'); },
+      signalStart: (renderer) => { order.push(`signal:${renderer}`); },
     });
     await host.start(canvas);
-    await host.startGame();
-    expect(order).toEqual(['resume:start', 'resume:end', 'signal']);
+    await host.startGame('stock');
+    expect(order).toEqual(['resume:start', 'resume:end', 'signal:stock']);
   });
 
   it('does not signal the browser game when audio resume fails', async () => {
@@ -268,7 +268,7 @@ describe('LoveRuntimeHost startup ownership', () => {
   });
 });
 
-function installRunningRuntime(overrides: Partial<{ resumeAudio: () => Promise<void>; signalStart: () => void }> = {}): { host: LoveRuntimeHost; canvas: HTMLCanvasElement } {
+function installRunningRuntime(overrides: Partial<{ resumeAudio: () => Promise<void>; signalStart: (renderer: 'pokeaudio-hd' | 'stock') => void }> = {}): { host: LoveRuntimeHost; canvas: HTMLCanvasElement } {
   const runtimeWindow: Record<string, unknown> = { location: { origin: 'https://example.test' } };
   const documentStub = {
     createElement: () => ({ dataset: {}, remove: () => undefined } as unknown as HTMLScriptElement),

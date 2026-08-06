@@ -5,6 +5,7 @@ local WebPersistence=require("src.web.WebPersistence")
 local Json=require("src.link.Json")
 local GameVersion=require("src.core.GameVersion")
 local B={state="waiting-import",browserFocused=true,focusSequence=0}; local ROM="/tmp/pokevoxel-rom.gb"
+local AUDIO_RENDERER="/tmp/pokevoxel-audio-renderer"; local AUDIO_MOD="pokeaudio-hd"
 local MANIFESTS={red="import-manifests/rom_manifest.json",blue="import-manifests/rom_manifest_blue.json",yellow="import-manifests/rom_manifest_yellow.json"}
 local function sha1(data)
  local digest=love.data.hash("sha1",data)
@@ -12,13 +13,24 @@ local function sha1(data)
  return love.data.encode("string","hex",digest)
 end
 local function versionPayload(version) return string.format('{"version":"%s"}',version) end
+local function savedAudioRenderer(G)
+ local options=G and G.save and G.save.options
+ local bucket=options and options.modOptions and options.modOptions[AUDIO_MOD]
+ return bucket and bucket.renderer=="stock" and "stock" or "pokeaudio-hd"
+end
+local function emitAudioPreference(G)
+ local renderer=savedAudioRenderer(G)
+ if renderer==B.lastAudioPreference then return end
+ B.lastAudioPreference=renderer
+ Events.emit("audio-preference",string.format('{"renderer":"%s"}',renderer))
+end
 local function emitAudioProbe()
  local probe=require("src.core.ChipAudio").audioProbe()
  local queued=math.max(0,math.min(8,tonumber(probe.queued) or 0))
- local signature=table.concat({probe.scene,queued>0 and "1" or "0",probe.playing and "1" or "0",probe.effectId,probe.lowHp and "1" or "0",probe.musicSources,probe.pcmPeak,probe.pcmNonzero and "1" or "0",probe.musicVolume,probe.sfxVolume,probe.lowHpActivations,probe.victoryActivations},":")
+ local signature=table.concat({probe.scene,probe.renderer,queued>0 and "1" or "0",probe.playing and "1" or "0",probe.effectId,probe.lowHp and "1" or "0",probe.musicSources,probe.pcmPeak,probe.pcmNonzero and "1" or "0",probe.musicVolume,probe.sfxVolume,probe.lowHpActivations,probe.victoryActivations},":")
  if signature==B.lastAudioProbe then return end
  B.lastAudioProbe=signature
- Events.emit("audio-probe",string.format('{"scene":"%s","queued":%d,"playing":%s,"effect":"%s","effectId":%d,"lowHp":%s,"musicSources":%d,"pcmPeak":%d,"pcmFrames":%d,"pcmNonzero":%s,"musicVolume":%d,"sfxVolume":%d,"lowHpActivations":%d,"victoryActivations":%d}',probe.scene,queued,probe.playing and "true" or "false",probe.effect,probe.effectId,probe.lowHp and "true" or "false",probe.musicSources,probe.pcmPeak,probe.pcmFrames,probe.pcmNonzero and "true" or "false",probe.musicVolume,probe.sfxVolume,probe.lowHpActivations,probe.victoryActivations))
+ Events.emit("audio-probe",string.format('{"scene":"%s","renderer":"%s","queued":%d,"playing":%s,"effect":"%s","effectId":%d,"lowHp":%s,"musicSources":%d,"pcmPeak":%d,"pcmFrames":%d,"pcmNonzero":%s,"musicVolume":%d,"sfxVolume":%d,"lowHpActivations":%d,"victoryActivations":%d}',probe.scene,probe.renderer,queued,probe.playing and "true" or "false",probe.effect,probe.effectId,probe.lowHp and "true" or "false",probe.musicSources,probe.pcmPeak,probe.pcmFrames,probe.pcmNonzero and "true" or "false",probe.musicVolume,probe.sfxVolume,probe.lowHpActivations,probe.victoryActivations))
 end
 
 -- Browser-main writes only these fixed mailbox files. Lua polls and consumes
@@ -70,6 +82,7 @@ local function prepareCachedGame()
  -- Title assets use LÖVE graphics constructors. Allocate them at the same
  -- pre-loop boundary, then transition to this exact state only after Start.
  B.preparedGame=G; B.preparedTitle=G:makeTitleState()
+ emitAudioPreference(G)
  B.state="awaiting-start"; Events.emit("cache-restored",versionPayload(version))
  return true
 end
@@ -111,12 +124,36 @@ local function beginImport()
   B.state="handoff"; Events.emit("cache-committed",versionPayload(version))
  end)
 end
-local function startGame()
+local function applyAudioPreference(G, renderer)
+ if renderer~="pokeaudio-hd" and renderer~="stock" then error("POKEVOXEL_AUDIO_RENDERER_INVALID",0) end
+ local options=assert(G.save and G.save.options,"POKEVOXEL_AUDIO_RENDERER_UNAVAILABLE")
+ options.modOptions=options.modOptions or {}; options.modOptions[AUDIO_MOD]=options.modOptions[AUDIO_MOD] or {}
+ options.modOptions[AUDIO_MOD].renderer=renderer
+ local loader=G.mods
+ if loader then
+  loader.modOptions=loader.modOptions or {}; loader.modOptions[AUDIO_MOD]=loader.modOptions[AUDIO_MOD] or {}
+  loader.modOptions[AUDIO_MOD].renderer=renderer
+ end
+ local exports=loader and loader.exports and loader.exports[AUDIO_MOD]
+ if not (exports and exports.selectRenderer) then error("POKEVOXEL_AUDIO_RENDERER_UNAVAILABLE",0) end
+ exports.selectRenderer(renderer,false)
+ if G.writeOptions then G:writeOptions() end
+ emitAudioPreference(G)
+end
+local function consumeAudioPreference()
+ local file=io.open(AUDIO_RENDERER,"rb")
+ if not file then error("POKEVOXEL_AUDIO_RENDERER_INVALID",0) end
+ local renderer=file:read("*a"); file:close(); os.remove(AUDIO_RENDERER)
+ if renderer~="pokeaudio-hd" and renderer~="stock" then error("POKEVOXEL_AUDIO_RENDERER_INVALID",0) end
+ return renderer
+end
+local function startGame(renderer)
  local G=B.preparedGame
  if not G then return end
  -- returnToTitle allocates real title assets. It runs with no public game
  -- reference so a nested browser frame cannot update a half-transitioned one.
  B.state="starting"; B.preparedGame=nil
+ applyAudioPreference(G,renderer)
  G:returnToTitle(B.preparedTitle); B.preparedTitle=nil
  _G.POKEVOXEL_GAME=G
  if not B.browserFocused and G.focus then G:focus(false) end
@@ -149,11 +186,12 @@ function B.update(dt)
   local ok, err=coroutine.resume(B.worker); if not ok then DurableGeneration.abort(); B.state="error"; local code=tostring(err):match("POKEVOXEL_[A-Z_]+") or "import-failed"; Events.emit("error",string.format('{"code":"%s"}',code)) end
  end
  consumeBrowserFocus()
- if B.state=="awaiting-start" then local start=io.open("/tmp/pokevoxel-start","rb"); if start then start:close(); os.remove("/tmp/pokevoxel-start"); startGame() end end
+ if B.state=="awaiting-start" then local start=io.open("/tmp/pokevoxel-start","rb"); if start then start:close(); os.remove("/tmp/pokevoxel-start"); startGame(consumeAudioPreference()) end end
  WebPersistence.update(sync, syncPersistence); WebPersistence.resume()
  if _G.POKEVOXEL_GAME then
  local G=_G.POKEVOXEL_GAME
  G:update(dt)
+  emitAudioPreference(G)
   emitAudioProbe()
   for _, state in ipairs(G.stack.states or {}) do
    if not B.titleReady and state.screenId=="TitleState" and state.phase=="loop" then B.titleReady=true; Events.emit("title-ready", "{}") end

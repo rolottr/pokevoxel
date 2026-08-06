@@ -168,8 +168,8 @@ describe('Layer 3 browser runtime source contracts', () => {
   it('stages the validated ROM before callMain with only fixed SDL controls', () => {
     const host = text('src', 'runtime', 'LoveRuntimeHost.ts'); const patch = text('scripts', 'patch-love-runtime.mjs'); const bootstrap = text('runtime', 'game', 'src', 'web', 'BrowserBootstrap.lua');
     expect(host).toContain('pokevoxelStageRomBeforeRun'); expect(host).toContain('const ready = Promise.resolve(love(module))'); expect(host).toContain('restartFromPersistentCache');
-    for (const token of ['POKEVOXEL_ROM_STAGE', '/tmp/pokevoxel-rom.gb', '/tmp/pokevoxel-sync-', '/tmp/pokevoxel-start']) expect(patch).toContain(token);
-    for (const token of ['/tmp/pokevoxel-sync-', '/tmp/pokevoxel-start']) expect(bootstrap).toContain(token);
+    for (const token of ['POKEVOXEL_ROM_STAGE', '/tmp/pokevoxel-rom.gb', '/tmp/pokevoxel-sync-', '/tmp/pokevoxel-audio-renderer', '/tmp/pokevoxel-start']) expect(patch).toContain(token);
+    for (const token of ['/tmp/pokevoxel-sync-', '/tmp/pokevoxel-audio-renderer', '/tmp/pokevoxel-start']) expect(bootstrap).toContain(token);
     for (const token of ['GameVersion.forSha1', 'rom_manifest.json', 'rom_manifest_blue.json', 'rom_manifest_yellow.json']) expect(bootstrap).toContain(token);
     for (const forbidden of ['pokevoxelBindTransport', 'transport-ready', 'require("ffi")']) expect(`${host}\n${bootstrap}`).not.toContain(forbidden);
   });

@@ -16,7 +16,7 @@ const manifest = JSON.parse(readFileSync(join(output, 'runtime-manifest.json'), 
 if (manifest.loveJsVersion !== '11.4.1' || manifest.initialMemoryBytes !== 536870912) throw new Error('runtime manifest does not pin love.js@11.4.1 with 512 MiB memory');
 if (manifest.stock?.loveJsSha256 !== 'eb20a4d947dc99e08e906e946c5b783e3f542f60a3107167a1e92d07bfe531d4' || manifest.stock?.loveWasmSha256 !== 'f9302c4034de06ead29f6526cc0c61dc73f7fdf7368edb3f568332af587cacf2' || manifest.stock?.loveWorkerSha256 !== '720c1d0160a6fc61c2a7deda7462310eaacdbad5cd559aba46976dfb7dcd4627') throw new Error('runtime manifest has an unexpected stock runtime fingerprint');
 const love = readFileSync(join(output, 'love.js'), 'utf8');
-for (const token of ['pokevoxelAdapter', 'POKEVOXEL_ROM_STAGE', 'pokevoxelStagedRom', '/tmp/pokevoxel-sync-', '/tmp/pokevoxel-focus-', 'POKEVOXEL_RUNTIME_DISPOSED']) if (!love.includes(token)) throw new Error(`patched love.js is missing required pre-run staging anchor: ${token}`);
+for (const token of ['pokevoxelAdapter', 'POKEVOXEL_ROM_STAGE', 'pokevoxelStagedRom', '/tmp/pokevoxel-sync-', '/tmp/pokevoxel-focus-', '/tmp/pokevoxel-audio-renderer', 'POKEVOXEL_AUDIO_RENDERER_INVALID', 'POKEVOXEL_RUNTIME_DISPOSED']) if (!love.includes(token)) throw new Error(`patched love.js is missing required pre-run staging anchor: ${token}`);
 if (!love.includes('majorVersion:2') || love.includes('majorVersion:1')) throw new Error('patched love.js does not require a WebGL2 context');
 for (const token of ['pokevoxelBindTransport', 'pokevoxelTransportReady', 'pokevoxelPump', 'pokevoxel-probe', 'pokevoxelCommandSlot', 'POKEVOXEL_TRANSPORT_']) if (love.includes(token)) throw new Error(`patched love.js retains obsolete transport machinery: ${token}`);
 const game = readFileSync(join(output, 'game.js'), 'utf8');
@@ -36,10 +36,12 @@ const collect = (root, prefix) => {
 };
 collect(join(product, 'runtime', 'game'), '');
 collect(join(product, 'runtime', 'mods', 'dramatic-shape'), 'mods/dramatic-shape/');
+collect(join(product, 'runtime', 'mods', 'pokeaudio-hd'), 'mods/pokeaudio-hd/');
 const count = (name) => entries.filter((entry) => entry === name).length;
 if (count('mods/dramatic-shape/manifest.json') !== 1 || count('mods/dramatic-shape/main.lua') !== 1) throw new Error('the .love must contain exactly one built-in dramatic-shape manifest and main.lua');
+if (count('mods/pokeaudio-hd/manifest.json') !== 1 || count('mods/pokeaudio-hd/main.lua') !== 1) throw new Error('the .love must contain exactly one built-in pokeaudio-hd manifest and main.lua');
 for (const entry of entries) {
-  if (entry.startsWith('mods/') && entry !== 'mods/' && !entry.startsWith('mods/dramatic-shape/')) throw new Error(`.love contains an unexpected mod root: ${entry}`);
+  if (entry.startsWith('mods/') && entry !== 'mods/' && !entry.startsWith('mods/dramatic-shape/') && !entry.startsWith('mods/pokeaudio-hd/')) throw new Error(`.love contains an unexpected mod root: ${entry}`);
   if (entry.endsWith('/')) continue;
   if (!allowed.has(entry)) throw new Error(`.love contains a non-allowlisted path: ${entry}`);
   if (/\.(?:gb|gbc|gba|sav|srm)$/i.test(entry)) throw new Error(`.love contains a prohibited game-data artifact: ${entry}`);

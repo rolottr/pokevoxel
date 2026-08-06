@@ -36,6 +36,7 @@ describe('private audio harness boundaries', () => {
   it('uses one worker-scoped persistent profile for split scenario specs', () => {
     const helper = read('tests/browser/helpers/audioHarness.ts');
     expect(helper).toContain('launchPersistentContext(profile');
+    expect(helper).toContain("args: ['--mute-audio']");
     expect(helper).toContain("{ scope: 'worker' }");
     expect(helper).toContain('if (this.started) return');
   });

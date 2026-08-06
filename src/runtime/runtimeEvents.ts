@@ -1,8 +1,8 @@
 export const RUNTIME_EVENT_PREFIX = 'POKEVOXEL_EVENT ';
 export const RUNTIME_EVENT_SCHEMA_VERSION = 1;
-export type RuntimeEventType = 'bootstrap-ready' | 'runtime-prepared' | 'import-phase' | 'import-progress' | 'cache-committed' | 'cache-restored' | 'cache-cleared' | 'game-started' | 'title-ready' | 'new-game-started' | 'overworld-ready' | 'voxel-ready' | 'voxel-unready' | 'voxel-occlusion-probe' | 'water-ready' | 'water-unready' | 'battle-ready' | 'battle-returned' | 'first-person-ready' | 'first-person-released' | 'first-person-parity' | 'error' | 'sync-request' | 'persistence-request' | 'persistence-saving' | 'persistence-complete' | 'persistence-failed' | 'persistence-restored' | 'persistence-summary' | 'audio-probe' | 'overworld-input-ready' | 'battle-input-phase';
+export type RuntimeEventType = 'bootstrap-ready' | 'runtime-prepared' | 'import-phase' | 'import-progress' | 'cache-committed' | 'cache-restored' | 'cache-cleared' | 'game-started' | 'title-ready' | 'new-game-started' | 'overworld-ready' | 'voxel-ready' | 'voxel-unready' | 'voxel-occlusion-probe' | 'water-ready' | 'water-unready' | 'battle-ready' | 'battle-returned' | 'first-person-ready' | 'first-person-released' | 'first-person-parity' | 'error' | 'sync-request' | 'persistence-request' | 'persistence-saving' | 'persistence-complete' | 'persistence-failed' | 'persistence-restored' | 'persistence-summary' | 'mod-restart-ready' | 'audio-preference' | 'audio-probe' | 'overworld-input-ready' | 'battle-input-phase';
 export type RuntimeEvent = Readonly<{ version: 1; id: number; type: RuntimeEventType; frame: number; payload: Record<string, unknown> }>;
-export type AudioProbe = Readonly<{ scene: 'none' | 'title' | 'overworld' | 'battle' | 'victory'; queued: number; playing: boolean; effect: 'none' | 'sfx' | 'low-hp'; effectId: number; lowHp: boolean; musicSources: number; pcmPeak: number; pcmFrames: number; pcmNonzero: boolean; musicVolume: number; sfxVolume: number; lowHpActivations: number; victoryActivations: number }>;
+export type AudioProbe = Readonly<{ scene: 'none' | 'title' | 'overworld' | 'battle' | 'victory'; renderer: 'stock' | 'pokeaudio-hd'; queued: number; playing: boolean; effect: 'none' | 'sfx' | 'low-hp'; effectId: number; lowHp: boolean; musicSources: number; pcmPeak: number; pcmFrames: number; pcmNonzero: boolean; musicVolume: number; sfxVolume: number; lowHpActivations: number; victoryActivations: number }>;
 /** Bounded, semantic evidence emitted only after the active voxel pipeline draws. */
 export type VoxelProbe = Readonly<{ map: 'PALLET_TOWN' | 'REDS_HOUSE_1F' | 'VIRIDIAN_FOREST' | 'ROCK_TUNNEL_1F'; loads: number; stableFrames: number; depth: boolean; npcDepth: boolean; buildingDepth: boolean; palette: 'active' | 'default'; dayNight: 'DAY' | 'NIGHT' | 'MORNING' | 'EVENING'; menus: boolean; streamCount: number; fallback: boolean }>;
 export type VoxelOcclusionProbe = Readonly<{ x: number; y: number; card: number; angle: number; hidden: boolean; packed: boolean }>;
@@ -23,9 +23,11 @@ export function parseRuntimeEvent(line: string): RuntimeEvent | undefined {
     if (!value || typeof value !== 'object') return undefined;
     const event = value as Record<string, unknown>;
     if (event.version !== RUNTIME_EVENT_SCHEMA_VERSION || !Number.isSafeInteger(event.id) || (event.id as number) < 1 || typeof event.frame !== 'number' || !Number.isFinite(event.frame) || !isRuntimeEventType(event.type) || !isPayload(event.payload)) return undefined;
-    if ((event.type === 'sync-request' || event.type === 'persistence-request') && (!Number.isSafeInteger((event.payload as Record<string, unknown>).id) || ((event.payload as Record<string, unknown>).id as number) < 1)) return undefined;
+    if ((event.type === 'sync-request' || event.type === 'persistence-request' || event.type === 'mod-restart-ready') && (!Number.isSafeInteger((event.payload as Record<string, unknown>).id) || ((event.payload as Record<string, unknown>).id as number) < 1)) return undefined;
     if (event.type === 'persistence-request' && !isPersistenceDomain((event.payload as Record<string, unknown>).domain)) return undefined;
+    if (event.type === 'mod-restart-ready' && Object.keys(event.payload as Record<string, unknown>).join(',') !== 'id') return undefined;
     if (event.type === 'persistence-summary' && !isPersistenceSummary(event.payload as Record<string, unknown>)) return undefined;
+    if (event.type === 'audio-preference' && !isAudioPreference(event.payload as Record<string, unknown>)) return undefined;
     if (event.type === 'battle-input-phase' && !['none','menu','move','messages'].includes((event.payload as Record<string, unknown>).phase as string)) return undefined;
     if (event.type === 'battle-input-phase' && Object.keys(event.payload as Record<string, unknown>).length !== 1) return undefined;
     if (event.type === 'overworld-input-ready' && Object.keys(event.payload as Record<string, unknown>).length !== 1) return undefined;
@@ -44,7 +46,7 @@ export function parseRuntimeEvent(line: string): RuntimeEvent | undefined {
     return event as RuntimeEvent;
   } catch { return undefined; }
 }
-function isRuntimeEventType(value: unknown): value is RuntimeEventType { return value === 'bootstrap-ready' || value === 'runtime-prepared' || value === 'import-phase' || value === 'import-progress' || value === 'cache-committed' || value === 'cache-restored' || value === 'cache-cleared' || value === 'game-started' || value === 'title-ready' || value === 'new-game-started' || value === 'overworld-ready' || value === 'voxel-ready' || value === 'voxel-unready' || value === 'voxel-occlusion-probe' || value === 'water-ready' || value === 'water-unready' || value === 'battle-ready' || value === 'battle-returned' || value === 'first-person-ready' || value === 'first-person-released' || value === 'first-person-parity' || value === 'error' || value === 'sync-request' || value === 'persistence-request' || value === 'persistence-saving' || value === 'persistence-complete' || value === 'persistence-failed' || value === 'persistence-restored' || value === 'persistence-summary' || value === 'audio-probe' || value === 'overworld-input-ready' || value === 'battle-input-phase'; }
+function isRuntimeEventType(value: unknown): value is RuntimeEventType { return value === 'bootstrap-ready' || value === 'runtime-prepared' || value === 'import-phase' || value === 'import-progress' || value === 'cache-committed' || value === 'cache-restored' || value === 'cache-cleared' || value === 'game-started' || value === 'title-ready' || value === 'new-game-started' || value === 'overworld-ready' || value === 'voxel-ready' || value === 'voxel-unready' || value === 'voxel-occlusion-probe' || value === 'water-ready' || value === 'water-unready' || value === 'battle-ready' || value === 'battle-returned' || value === 'first-person-ready' || value === 'first-person-released' || value === 'first-person-parity' || value === 'error' || value === 'sync-request' || value === 'persistence-request' || value === 'persistence-saving' || value === 'persistence-complete' || value === 'persistence-failed' || value === 'persistence-restored' || value === 'persistence-summary' || value === 'mod-restart-ready' || value === 'audio-preference' || value === 'audio-probe' || value === 'overworld-input-ready' || value === 'battle-input-phase'; }
 const BATTLE_CATEGORIES = ['wild', 'trainer', 'rival', 'gym', 'jessie-james', 'legendary', 'elite-four', 'final'];
 function isBattleProbe(value: Record<string, unknown>): boolean {
   return Object.keys(value).sort().join(',') === 'category,fallback,kind,map,staged'
@@ -112,8 +114,9 @@ function isVoxelOcclusionProbe(value: Record<string, unknown>): boolean {
 }
 function isAudioProbe(value: Record<string, unknown>): boolean {
   const keys = Object.keys(value).sort();
-  if (keys.join(',') !== 'effect,effectId,lowHp,lowHpActivations,musicSources,musicVolume,pcmFrames,pcmNonzero,pcmPeak,playing,queued,scene,sfxVolume,victoryActivations') return false;
+  if (keys.join(',') !== 'effect,effectId,lowHp,lowHpActivations,musicSources,musicVolume,pcmFrames,pcmNonzero,pcmPeak,playing,queued,renderer,scene,sfxVolume,victoryActivations') return false;
   return (value.scene === 'none' || value.scene === 'title' || value.scene === 'overworld' || value.scene === 'battle' || value.scene === 'victory')
+    && (value.renderer === 'stock' || value.renderer === 'pokeaudio-hd')
     && Number.isInteger(value.queued) && (value.queued as number) >= 0 && (value.queued as number) <= 8
     && typeof value.playing === 'boolean'
     && (value.effect === 'none' || value.effect === 'sfx' || value.effect === 'low-hp')
@@ -127,6 +130,10 @@ function isAudioProbe(value: Record<string, unknown>): boolean {
     && Number.isInteger(value.musicVolume) && (value.musicVolume as number) >= 0 && (value.musicVolume as number) <= 7
     && Number.isSafeInteger(value.victoryActivations) && (value.victoryActivations as number) >= 0 && (value.victoryActivations as number) <= 1_000_000
     && Number.isInteger(value.sfxVolume) && (value.sfxVolume as number) >= 0 && (value.sfxVolume as number) <= 7;
+}
+function isAudioPreference(value: Record<string, unknown>): boolean {
+  return Object.keys(value).join(',') === 'renderer'
+    && (value.renderer === 'stock' || value.renderer === 'pokeaudio-hd');
 }
 function isPersistenceDomain(value: unknown): boolean { return value === 'save' || value === 'options' || value === 'cache'; }
 function isPersistenceSummary(value: Record<string, unknown>): boolean {

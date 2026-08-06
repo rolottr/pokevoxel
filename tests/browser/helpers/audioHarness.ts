@@ -2,6 +2,7 @@ import { chromium, expect, test as base, type BrowserContext, type Page } from '
 
 export type AudioProbe = Readonly<{
   scene: 'none' | 'title' | 'overworld' | 'battle' | 'victory';
+  renderer: 'stock' | 'pokeaudio-hd';
   queued: number;
   playing: boolean;
   effect: 'none' | 'sfx' | 'low-hp';
@@ -38,7 +39,7 @@ class AudioHarness {
     }
     await this.page.getByRole('button', { name: /^start game$/i }).click();
     await expect(this.page.getByTestId('yellow-runtime-title-ready')).toBeVisible({ timeout: 60_000 });
-    await expect.poll(() => this.probe(), { timeout: 30_000 }).toMatchObject({ scene: 'title', musicSources: 1, pcmNonzero: true });
+    await expect.poll(() => this.probe(), { timeout: 30_000 }).toMatchObject({ scene: 'title', renderer: 'pokeaudio-hd', musicSources: 1, pcmNonzero: true });
     this.phase = 'title';
     this.started = true;
   }
@@ -46,16 +47,37 @@ class AudioHarness {
   async ensureOverworld(): Promise<void> {
     await this.ensureTitle();
     await this.command('2');
-    await expect.poll(() => this.probe(), { timeout: 30_000 }).toMatchObject({ scene: 'overworld', musicSources: 1, pcmNonzero: true });
+    await expect.poll(() => this.probe(), { timeout: 30_000 }).toMatchObject({ scene: 'overworld', renderer: 'pokeaudio-hd', musicSources: 1, pcmNonzero: true });
     this.phase = 'overworld';
   }
 
-  async command(key: '1' | '2' | '3' | '4' | '5' | '6' | '7'): Promise<void> {
+  async command(key: '1' | '2' | '3' | '4' | '5' | '6' | '7' | 'F9' | 'F10'): Promise<void> {
     if (this.phase === 'unknown') throw new Error(`Audio command ${key} requires title or overworld phase; call ensureTitle() or ensureOverworld() first.`);
     await this.page.locator('canvas').focus();
     await this.page.keyboard.down(key);
     await this.page.waitForTimeout(80);
     await this.page.keyboard.up(key);
+  }
+
+  async applyPersistentAudioToggle(renderer: 'stock' | 'pokeaudio-hd'): Promise<void> {
+    if (this.phase === 'unknown') throw new Error('Persistent audio toggle requires a running title or overworld.');
+    const press = async (key: string): Promise<void> => {
+      await this.page.locator('canvas').focus();
+      await this.page.keyboard.press(key);
+      await this.page.waitForTimeout(100);
+    };
+    await press('F10');
+    await press('Shift');
+    await press('Escape');
+    await press('z');
+    await press('z');
+    const start = this.page.getByRole('button', { name: /^start game$/i });
+    await expect(start).toBeVisible({ timeout: 30_000 });
+    await start.click();
+    await expect(this.page.getByTestId('yellow-runtime-title-ready')).toBeVisible({ timeout: 60_000 });
+    await expect.poll(() => this.probe(), { timeout: 30_000 }).toMatchObject({ scene: 'title', renderer, musicSources: 1, pcmNonzero: true });
+    this.phase = 'title';
+    this.started = true;
   }
 
   async probe(): Promise<AudioProbe | undefined> {
@@ -87,6 +109,7 @@ export const test = base.extend<{}, WorkerFixtures>({
     const context = await chromium.launchPersistentContext(profile, {
       channel: process.env.POKEVOXEL_BROWSER_CHANNEL ?? 'chrome',
       baseURL: workerInfo.project.use.baseURL as string,
+      args: ['--mute-audio'],
     });
     await context.addInitScript(() => {
       const state = { contexts: [] as AudioContext[], resumes: 0 };

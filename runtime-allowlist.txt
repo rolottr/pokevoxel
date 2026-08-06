@@ -291,8 +291,13 @@ gen1recomp	tools/rom_manifest_yellow.json	runtime/game/import-manifests/rom_mani
 gen1recomp	tools/rom_manifest.json	runtime/game/import-manifests/rom_manifest.json	b8233558d99bd7fddbf3c2ee8f51486c3802e229
 product	-	runtime/game/main.lua	75b6a9ced6e4afb3d10a7d256c4783af9bd6cbcdbae46b47ad599d203949575d
 product	-	runtime/game/src/import/RomImportSession.lua	c378143cfd07294d5349fe74f62ac5b9c23655e9351f32317a38b50bf11e7930
-product	-	runtime/game/src/web/BrowserBootstrap.lua	b0a7da4ed95251fb24afb8760e5d4513cea442a98077676fd0cdea39949ab6eb
+product	-	runtime/game/src/web/BrowserBootstrap.lua	310ae13df3692b83518b8a50f7b6f8cce24c0e457d291614a4e41da23be042cb
 product	-	runtime/game/src/web/BrowserEvents.lua	8b0b75fa306fbf0450198c68be1ac89bed0072e6b0da45669de393de24653f28
 product	-	runtime/game/src/web/DurableGeneration.lua	51f991c2dc468ccea8311e002919a637089b05ef92125a2ffd73cee066b602de
 product	-	runtime/game/bit.lua	f0a5ce2921358e54646a41195fbc1626535fe2015f5c1c20ef8370963f34abeb
-product	-	runtime/game/src/web/WebPersistence.lua	959cc6f3572184e3c810df106905f4f02fc633ae3ebd4793ce431cc29c98a4c2
+product	-	runtime/game/src/web/WebPersistence.lua	dcce80405f7951da7ce9f26567c89fb5bbb5b3e3d8cf5895002a8055251241e7
+product	-	runtime/mods/pokeaudio-hd/LICENSE	4761120985ef774d0be63afac6d2ab6e25f42c29b3e329c352cda2889d3def09
+product	-	runtime/mods/pokeaudio-hd/README.md	5b9a1a4a24a2def1773edb84e34b98bdce0f9547658e7df40e7dd72044596096
+product	-	runtime/mods/pokeaudio-hd/audio/ModernRetro.lua	9e77ce83bbf566d80e637c7da7610b34194f8c08593acd6a6c7156222ab4c186
+product	-	runtime/mods/pokeaudio-hd/main.lua	439562024db03b5cc35d6fbffe4bb3d414d10181b2ffbe6bd3b96a294532130c
+product	-	runtime/mods/pokeaudio-hd/manifest.json	ef3f5f2656ee09d71a24878e72f43f75150fa5b2020fad569760cdf3b3804246

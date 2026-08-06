@@ -597,6 +597,14 @@ function Game:keypressed(key)
     end
     return
   end
+  if key == "f9" then
+    local audio = self.mods and self.mods.exports
+      and self.mods.exports["pokeaudio-hd"]
+    if audio and audio.toggle then
+      audio.toggle()
+      return
+    end
+  end
   if key == "-" then
     self:zoomStep(-1)
     return
@@ -669,7 +677,16 @@ end
 -- LÖVE process ensures scripts, registries, and assets are all rebuilt from
 -- the newly selected mod state.
 function Game:restartWithMods()
-  error("POKEVOXEL_MOD_RESTART_UNAVAILABLE")
+  if love and love.system and love.system.getOS
+      and love.system.getOS() == "Web" then
+    local saved = self.save and self.save.options
+      and SaveData.saveOptions(self.save.options, nil, "restart-mods")
+    if not saved then error("POKEVOXEL_MOD_RESTART_SAVE_FAILED") end
+    return
+  end
+  if love and love.event and love.event.quit then
+    love.event.quit("restart")
+  end
 end
 
 -- Releases reach Input even while a top state captures raw input: a

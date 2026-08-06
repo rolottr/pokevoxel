@@ -8,7 +8,7 @@ const text = (...parts: string[]) => readFileSync(resolve(root, ...parts), 'utf8
 describe('Layer 5 audio source contracts', () => {
   it('keeps browser audio resume inside the explicit Start lifecycle', () => {
     const host = text('src', 'runtime', 'LoveRuntimeHost.ts');
-    expect(host).toMatch(/await adapter\.resumeAudio\(\);[\s\S]{0,120}?await adapter\.signalStart\(\)/);
+    expect(host).toMatch(/await adapter\.resumeAudio\(\);[\s\S]{0,120}?await adapter\.signalStart\(renderer\)/);
   });
 
   it('does not expand the patched runtime capability surface for audio inspection', () => {
@@ -24,11 +24,94 @@ describe('Layer 5 audio source contracts', () => {
     const bootstrap = text('runtime', 'game', 'src', 'web', 'BrowserBootstrap.lua');
     const events = text('src', 'runtime', 'runtimeEvents.ts');
     expect(chip).toContain('function ChipAudio.audioProbe()');
+    expect(chip).toContain('renderer = telemetry.renderer');
+    expect(chip).toContain('noteQueuedRenderer(m, buf.renderer)');
+    expect(chip).toContain('syncAudibleRenderer(m, queued)');
     expect(chip).toContain('getFreeBufferCount');
     expect(chip).toContain('m.source:isPlaying()');
     expect(bootstrap).toContain('Events.emit("audio-probe"');
     expect(events).toContain("'audio-probe'");
+    expect(events).toContain("renderer: 'stock' | 'pokeaudio-hd'");
     expect(`${chip}\n${bootstrap}`).not.toMatch(/audio-probe[^\n]*(?:song|path|bytes)/i);
+  });
+
+  it('packages one shared serializable PokeAudio HD renderer for main-thread and worker synthesis', () => {
+    const synth = text('runtime', 'game', 'src', 'core', 'ChipSynth.lua');
+    const chip = text('runtime', 'game', 'src', 'core', 'ChipAudio.lua');
+    const worker = text('runtime', 'game', 'src', 'core', 'chip_worker.lua');
+    const main = text('runtime', 'mods', 'pokeaudio-hd', 'main.lua');
+    const renderer = text('runtime', 'mods', 'pokeaudio-hd', 'audio', 'ModernRetro.lua');
+    const build = text('scripts', 'build-runtime.mjs');
+    const audit = text('scripts', 'audit-runtime.mjs');
+    expect(synth).toContain('function ChipSynth.setRenderer(descriptor)');
+    expect(synth).toContain('function Engine:refreshRenderer()');
+    expect(synth).toContain('rendererId = activeRendererId');
+    expect(chip).toContain('renderer = ChipSynth.getRendererDescriptor()');
+    expect(chip).not.toContain('if currentMusic then ChipAudio.stopMusic() end');
+    expect(chip).toContain('LIVE_SWITCH_QUEUE_TARGET = 2');
+    expect(chip).toContain('liveSwitch = liveRendererSwitch');
+    expect(worker).toContain('ChipSynth.setRenderer(cmd.renderer)');
+    expect(worker).toContain('liveLookahead = cmd.liveSwitch == true and 1 or LOOKAHEAD');
+    expect(worker).toContain('renderer = engine:getRendererId()');
+    expect(main).toContain('id = "pokeaudio-hd"');
+    expect(main).toContain('mod.exports.toggle = function()');
+    expect(main).toContain('mod.exports.selectRenderer = function(value, announce)');
+    expect(main).toContain('mod.options:define(rendererSchema)');
+    expect(main).toContain('label = "AUDIO DRIVER"');
+    expect(main).toContain('mod.events:on("mod.options_changed"');
+    expect(main).toContain('payload.key == "renderer"');
+    expect(main).toContain('AUDIO: STOCK');
+    for (const method of ['pulse', 'wave', 'noise', 'mixChannel', 'processStereo']) {
+      expect(renderer).toContain(`function Renderer:${method}`);
+    }
+    expect(build).toContain("{ id: 'pokeaudio-hd', path: join(runtime, 'mods', 'pokeaudio-hd') }");
+    expect(audit).toContain("count('mods/pokeaudio-hd/manifest.json') !== 1");
+  });
+
+  it('always loads PokeAudio and exposes one direct live F10 audio-driver control', () => {
+    const manifestJson = text('runtime', 'mods', 'pokeaudio-hd', 'manifest.json');
+    const manifest = text('runtime', 'game', 'src', 'mods', 'Manifest.lua');
+    const loader = text('runtime', 'game', 'src', 'mods', 'Loader.lua');
+    const manager = text('runtime', 'game', 'src', 'mods', 'ManagerState.lua');
+    expect(JSON.parse(manifestJson).always_loaded).toBe(true);
+    expect(manifest).toContain('always_loaded must be a boolean');
+    expect(manifest).toContain('always_loaded = alwaysLoaded');
+    expect(loader).toContain('if mod.manifest.always_loaded and self.disabled[id] then');
+    expect(loader).toMatch(/if mod\.manifest\.always_loaded then[\s\S]{0,180}if enabled == false then return false end/);
+    expect(manager).toContain('if m.always_loaded then return false end');
+    expect(manager).toMatch(/function ManagerState:detailRows\(m\)[\s\S]{0,100}if m\.always_loaded then/);
+    expect(manager).toContain('label = option.label');
+    expect(manager).toContain('self:notify("USE AUDIO DRIVER")');
+  });
+
+  it('applies the fixed homepage preference before title audio and mirrors only the saved F10 value', () => {
+    const bootstrap = text('runtime', 'game', 'src', 'web', 'BrowserBootstrap.lua');
+    const patch = text('scripts', 'patch-love-runtime.mjs');
+    const app = text('src', 'app', 'PokevoxelApp.ts');
+    expect(patch).toContain('renderer!=="pokeaudio-hd"&&renderer!=="stock"');
+    expect(patch).toContain('FS.writeFile("/tmp/pokevoxel-audio-renderer",renderer)');
+    expect(bootstrap).toMatch(/applyAudioPreference\(G,renderer\)[\s\S]{0,80}G:returnToTitle/);
+    expect(bootstrap).toContain('options.modOptions[AUDIO_MOD].renderer=renderer');
+    expect(bootstrap).toContain('if not (exports and exports.selectRenderer) then error("POKEVOXEL_AUDIO_RENDERER_UNAVAILABLE",0) end');
+    expect(bootstrap).toContain('exports.selectRenderer(renderer,false)');
+    expect(bootstrap).not.toContain('options.mods[AUDIO_MOD]=true');
+    expect(bootstrap).not.toContain('loader.disabled[AUDIO_MOD]=nil');
+    expect(bootstrap).not.toContain('ChipAudio.setRenderer(selected)');
+    expect(bootstrap).toContain('Events.emit("audio-preference"');
+    expect(app).toContain("event.type === 'audio-preference'");
+    expect(app).toContain('if (!this.audioRendererOverride)');
+    expect(app).toContain('this.audioRendererOverride = true');
+    expect(bootstrap).not.toMatch(/mod\.exports\.toggle/);
+  });
+
+  it('exposes the live F9 audio comparison without replacing the persistent mod manager', () => {
+    const game = text('runtime', 'game', 'src', 'core', 'Game.lua');
+    const controls = text('src', 'ui', 'GameControls.ts');
+    expect(game).toContain('if key == "f9" then');
+    expect(game).toContain('self.mods.exports["pokeaudio-hd"]');
+    expect(game).toContain('if key == "f10" then');
+    expect(game).toContain('ModRuntime.call("render.hud"');
+    expect(controls).toContain("{ label: 'Audio A/B', keys: ['F9']");
   });
 
   it('records semantic title/map/battle/victory intent only after real audio sources start', () => {

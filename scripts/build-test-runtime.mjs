@@ -10,7 +10,10 @@ const product = resolve(dirname(new URL(import.meta.url).pathname), '..');
 const publicRuntime = join(product, 'public', 'runtime');
 const allowedOutputRoot = join(product, '.pokevoxel-test-data', 'runs');
 const game = join(product, 'runtime', 'game');
-const mod = join(product, 'runtime', 'mods', 'dramatic-shape');
+const mods = [
+  { id: 'dramatic-shape', path: join(product, 'runtime', 'mods', 'dramatic-shape') },
+  { id: 'pokeaudio-hd', path: join(product, 'runtime', 'mods', 'pokeaudio-hd') },
+];
 const lovePackage = join(product, 'node_modules', 'love.js');
 const memory = 512 * 1024 * 1024;
 const expected = ['game.js', 'game.data', 'love.js', 'love.wasm', 'love.worker.js', 'runtime-manifest.json'];
@@ -84,7 +87,7 @@ const requestedOutput = argument('--output');
 if (!requestedOutput || requestedOutput.startsWith('-')) throw new Error('Usage: node scripts/build-test-runtime.mjs --output <directory>');
 const output = resolve(product, requestedOutput);
 refuseUnsafeOutput(output);
-for (const path of [publicRuntime, game, mod, scenario.driver, join(lovePackage, 'index.js')]) {
+for (const path of [publicRuntime, game, ...mods.map((mod) => mod.path), scenario.driver, join(lovePackage, 'index.js')]) {
   if (!existsSync(path)) throw new Error(`test runtime input is missing: ${path}`);
 }
 
@@ -105,7 +108,7 @@ try {
   mkdirSync(join(stage, 'src', 'test'), { recursive: true });
   cpSync(scenario.driver, join(stage, 'src', 'test', scenario.archiveDriver));
   mkdirSync(join(stage, 'mods'), { recursive: true });
-  cpSync(mod, join(stage, 'mods', 'dramatic-shape'), { recursive: true });
+  for (const mod of mods) cpSync(mod.path, join(stage, 'mods', mod.id), { recursive: true });
   execFileSync('zip', ['-X', '-q', '-r', archive, '.'], { cwd: stage, stdio: 'inherit' });
   execFileSync(process.execPath, [join(lovePackage, 'index.js'), '-t', 'Pokevoxel Yellow test audio', '-m', String(memory), archive, candidate], { stdio: 'inherit' });
   rmSync(join(candidate, 'index.html'), { force: true });

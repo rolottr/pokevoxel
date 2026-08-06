@@ -1936,8 +1936,8 @@
       "destination": "runtime/game/src/core/chip_worker.lua",
       "upstreamBlob": "fccba224a28400ae0be49016bba15212368dbaca",
       "blob": "fccba224a28400ae0be49016bba15212368dbaca",
-      "localSha256": "fe0dd9e88edda7c02615ee31aca18994c609f32b4d8c578b070d43058951fe26",
-      "sha256": "fe0dd9e88edda7c02615ee31aca18994c609f32b4d8c578b070d43058951fe26",
+      "localSha256": "b858aa985e859291f4960276b3d08666f70b35518c3e10efa171cd7bc40c722c",
+      "sha256": "b858aa985e859291f4960276b3d08666f70b35518c3e10efa171cd7bc40c722c",
       "status": "patched"
     },
     {
@@ -1949,8 +1949,8 @@
       "destination": "runtime/game/src/core/ChipAudio.lua",
       "upstreamBlob": "520961ed65de301ec9dd231b9a24b2a75c6ba702",
       "blob": "520961ed65de301ec9dd231b9a24b2a75c6ba702",
-      "localSha256": "a36e8ef891af6bd54beaae90c275ecacd9e251ca233c676504606e623c4bddce",
-      "sha256": "a36e8ef891af6bd54beaae90c275ecacd9e251ca233c676504606e623c4bddce",
+      "localSha256": "ac26f72b1d83933514ec26a38f376b23af164e59dbf9505da15c92d8db85c0a3",
+      "sha256": "ac26f72b1d83933514ec26a38f376b23af164e59dbf9505da15c92d8db85c0a3",
       "status": "patched"
     },
     {
@@ -1962,8 +1962,8 @@
       "destination": "runtime/game/src/core/ChipSynth.lua",
       "upstreamBlob": "dfbc5cc1f883f406bdbf09ac55037e7ba70cd4a5",
       "blob": "dfbc5cc1f883f406bdbf09ac55037e7ba70cd4a5",
-      "localSha256": "fef4bde727972a65a274c83859fc68da5d180e872f8b6d4b463cde7988f05787",
-      "sha256": "fef4bde727972a65a274c83859fc68da5d180e872f8b6d4b463cde7988f05787",
+      "localSha256": "845652b94bc4a7689c1609a57bc44e169dccb1f07c7d5aa78f6091be9f4f8aad",
+      "sha256": "845652b94bc4a7689c1609a57bc44e169dccb1f07c7d5aa78f6091be9f4f8aad",
       "status": "patched"
     },
     {
@@ -2040,8 +2040,8 @@
       "destination": "runtime/game/src/core/Game.lua",
       "upstreamBlob": "11d86c5a3b9eb99072650ac2733388e0de48d870",
       "blob": "11d86c5a3b9eb99072650ac2733388e0de48d870",
-      "localSha256": "67a8ee4b64edd77e48b270ab0892f1ab53feec1082343c8d4ab3fac94760ce74",
-      "sha256": "67a8ee4b64edd77e48b270ab0892f1ab53feec1082343c8d4ab3fac94760ce74",
+      "localSha256": "71cdfbd93b36c3d0c8a543f2cd039ca6ed587c781de68d8b9576f6d64ad5af0b",
+      "sha256": "71cdfbd93b36c3d0c8a543f2cd039ca6ed587c781de68d8b9576f6d64ad5af0b",
       "status": "patched"
     },
     {
@@ -2209,8 +2209,8 @@
       "destination": "runtime/game/src/core/SaveData.lua",
       "upstreamBlob": "6ce20c58a2c38ae0f4e692fec6c7ff731c72e18a",
       "blob": "6ce20c58a2c38ae0f4e692fec6c7ff731c72e18a",
-      "localSha256": "5e60b3c1b2b0efbaa4566fa8733844321f1cdfbe6a51cbb0007fb169971b4184",
-      "sha256": "5e60b3c1b2b0efbaa4566fa8733844321f1cdfbe6a51cbb0007fb169971b4184",
+      "localSha256": "f1d717ac37a20c7a6b65a53bd6ed21902f0d4e336f964c130db80e8ec24e23fe",
+      "sha256": "f1d717ac37a20c7a6b65a53bd6ed21902f0d4e336f964c130db80e8ec24e23fe",
       "status": "patched"
     },
     {
@@ -2612,8 +2612,8 @@
       "destination": "runtime/game/src/mods/Loader.lua",
       "upstreamBlob": "aa6b803f560365728d899b52611f557abe7340b0",
       "blob": "aa6b803f560365728d899b52611f557abe7340b0",
-      "localSha256": "07700c54d2999073e3d7c8c532f6c2389a384e66d5fbc907ffe7ecc8d720891d",
-      "sha256": "07700c54d2999073e3d7c8c532f6c2389a384e66d5fbc907ffe7ecc8d720891d",
+      "localSha256": "6a0273a6d1cb6fcb32847b40f5fdc6cb8c0735ea4ef3fd7a5258ccf88547109f",
+      "sha256": "6a0273a6d1cb6fcb32847b40f5fdc6cb8c0735ea4ef3fd7a5258ccf88547109f",
       "status": "patched"
     },
     {
@@ -53511,28 +53511,28 @@
         "upstreamPath": "src/core/chip_worker.lua",
         "productPath": "runtime/game/src/core/chip_worker.lua",
         "upstreamBlob": "fccba224a28400ae0be49016bba15212368dbaca",
-        "sha256": "fe0dd9e88edda7c02615ee31aca18994c609f32b4d8c578b070d43058951fe26"
+        "sha256": "b858aa985e859291f4960276b3d08666f70b35518c3e10efa171cd7bc40c722c"
       },
       {
         "sourceId": "gen1recomp",
         "upstreamPath": "src/core/ChipAudio.lua",
         "productPath": "runtime/game/src/core/ChipAudio.lua",
         "upstreamBlob": "520961ed65de301ec9dd231b9a24b2a75c6ba702",
-        "sha256": "a36e8ef891af6bd54beaae90c275ecacd9e251ca233c676504606e623c4bddce"
+        "sha256": "ac26f72b1d83933514ec26a38f376b23af164e59dbf9505da15c92d8db85c0a3"
       },
       {
         "sourceId": "gen1recomp",
         "upstreamPath": "src/core/ChipSynth.lua",
         "productPath": "runtime/game/src/core/ChipSynth.lua",
         "upstreamBlob": "dfbc5cc1f883f406bdbf09ac55037e7ba70cd4a5",
-        "sha256": "fef4bde727972a65a274c83859fc68da5d180e872f8b6d4b463cde7988f05787"
+        "sha256": "845652b94bc4a7689c1609a57bc44e169dccb1f07c7d5aa78f6091be9f4f8aad"
       },
       {
         "sourceId": "gen1recomp",
         "upstreamPath": "src/core/Game.lua",
         "productPath": "runtime/game/src/core/Game.lua",
         "upstreamBlob": "11d86c5a3b9eb99072650ac2733388e0de48d870",
-        "sha256": "67a8ee4b64edd77e48b270ab0892f1ab53feec1082343c8d4ab3fac94760ce74"
+        "sha256": "71cdfbd93b36c3d0c8a543f2cd039ca6ed587c781de68d8b9576f6d64ad5af0b"
       },
       {
         "sourceId": "gen1recomp",
@@ -53546,7 +53546,7 @@
         "upstreamPath": "src/core/SaveData.lua",
         "productPath": "runtime/game/src/core/SaveData.lua",
         "upstreamBlob": "6ce20c58a2c38ae0f4e692fec6c7ff731c72e18a",
-        "sha256": "5e60b3c1b2b0efbaa4566fa8733844321f1cdfbe6a51cbb0007fb169971b4184"
+        "sha256": "f1d717ac37a20c7a6b65a53bd6ed21902f0d4e336f964c130db80e8ec24e23fe"
       },
       {
         "sourceId": "gen1recomp",
@@ -53637,7 +53637,7 @@
     {
       "destination": "runtime/game/src/web/BrowserBootstrap.lua",
       "productPath": "runtime/game/src/web/BrowserBootstrap.lua",
-      "sha256": "b0a7da4ed95251fb24afb8760e5d4513cea442a98077676fd0cdea39949ab6eb",
+      "sha256": "310ae13df3692b83518b8a50f7b6f8cce24c0e457d291614a4e41da23be042cb",
       "reason": "Layer 3 product-owned browser runtime addition"
     },
     {
@@ -53661,8 +53661,38 @@
     {
       "destination": "runtime/game/src/web/WebPersistence.lua",
       "productPath": "runtime/game/src/web/WebPersistence.lua",
-      "sha256": "959cc6f3572184e3c810df106905f4f02fc633ae3ebd4793ce431cc29c98a4c2",
+      "sha256": "dcce80405f7951da7ce9f26567c89fb5bbb5b3e3d8cf5895002a8055251241e7",
       "reason": "Layer 3 product-owned browser runtime addition"
+    },
+    {
+      "destination": "runtime/mods/pokeaudio-hd/LICENSE",
+      "productPath": "runtime/mods/pokeaudio-hd/LICENSE",
+      "sha256": "4761120985ef774d0be63afac6d2ab6e25f42c29b3e329c352cda2889d3def09",
+      "reason": "Layer 5 product-owned PokeAudio HD mod"
+    },
+    {
+      "destination": "runtime/mods/pokeaudio-hd/README.md",
+      "productPath": "runtime/mods/pokeaudio-hd/README.md",
+      "sha256": "5b9a1a4a24a2def1773edb84e34b98bdce0f9547658e7df40e7dd72044596096",
+      "reason": "Layer 5 product-owned PokeAudio HD mod"
+    },
+    {
+      "destination": "runtime/mods/pokeaudio-hd/audio/ModernRetro.lua",
+      "productPath": "runtime/mods/pokeaudio-hd/audio/ModernRetro.lua",
+      "sha256": "9e77ce83bbf566d80e637c7da7610b34194f8c08593acd6a6c7156222ab4c186",
+      "reason": "Layer 5 product-owned PokeAudio HD mod"
+    },
+    {
+      "destination": "runtime/mods/pokeaudio-hd/main.lua",
+      "productPath": "runtime/mods/pokeaudio-hd/main.lua",
+      "sha256": "439562024db03b5cc35d6fbffe4bb3d414d10181b2ffbe6bd3b96a294532130c",
+      "reason": "Layer 5 product-owned PokeAudio HD mod"
+    },
+    {
+      "destination": "runtime/mods/pokeaudio-hd/manifest.json",
+      "productPath": "runtime/mods/pokeaudio-hd/manifest.json",
+      "sha256": "ef3f5f2656ee09d71a24878e72f43f75150fa5b2020fad569760cdf3b3804246",
+      "reason": "Layer 5 product-owned PokeAudio HD mod"
     }
   ]
 }

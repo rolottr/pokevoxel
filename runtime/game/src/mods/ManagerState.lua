@@ -243,6 +243,7 @@ function ManagerState:enabledSet()
 end
 
 function ManagerState:isStaged(m)
+  if m.always_loaded then return false end
   return (m.enabled and true or false) ~= bootEnabled(m)
 end
 
@@ -335,6 +336,24 @@ end
 
 function ManagerState:detailRows(m)
   local rows = {}
+  if m.always_loaded then
+    local schema = self:schemaFor(m)
+    local optionRows = schema and self:buildOptionRows(m, schema) or {}
+    local option = optionRows[1]
+    if option and option.id ~= "__reset" then
+      rows[#rows + 1] = {
+        label = option.label,
+        value = option.value,
+        action = function()
+          if option.step then option.step(self.game, 1)
+          elseif option.activate then option.activate() end
+        end,
+      }
+    end
+    rows[#rows + 1] = { label = Strings("BACK"),
+      action = function() self:goBack() end }
+    return rows
+  end
   rows[#rows + 1] = { label = m.enabled and "DISABLE" or "ENABLE",
     action = function() self:beginToggle(m) end }
   if self:schemaFor(m) then
@@ -530,12 +549,16 @@ end
 function ManagerState:quickToggle()
   if self.screen == "list" and self.tab == 1 then
     local row = self:focusedRow()
-    if row and row.mod then self:beginToggle(row.mod) end
+    if row and row.mod then
+      if row.mod.always_loaded then self:notify("USE AUDIO DRIVER")
+      else self:beginToggle(row.mod) end
+    end
   elseif self.screen == "list" and self.tab == 2 then
     local row = self:focusedRow()
     if row and row.profile then self:renameProfile(row.profile) end
   elseif self.screen == "detail" and self.currentMod then
-    self:beginToggle(self.currentMod)
+    if self.currentMod.always_loaded then self:notify("USE AUDIO DRIVER")
+    else self:beginToggle(self.currentMod) end
   end
 end
 
@@ -629,6 +652,10 @@ end
 
 function ManagerState:beginToggle(m)
   if not m then return end
+  if m.always_loaded then
+    self:notify("USE AUDIO DRIVER")
+    return
+  end
   local want = not m.enabled
   local loader = self.game.mods
   local r
@@ -664,11 +691,14 @@ function ManagerState:commitToggle(apply)
   local loader = self.game.mods
   local opts = self:optionsTable()
   for id, en in pairs(apply) do
-    if loader and loader.setEnabled then loader:setEnabled(id, en) end
+    local mod = self.byId[id]
+    if not (mod and mod.always_loaded and en == false) then
+      if loader and loader.setEnabled then loader:setEnabled(id, en) end
     -- mirror into the live options so a later writeOptions cannot revert
     -- what setEnabled just persisted
-    opts.mods = opts.mods or {}
-    opts.mods[id] = en
+      opts.mods = opts.mods or {}
+      opts.mods[id] = en
+    end
   end
   if loader and loader.status then self.game.modStatus = loader:status() end
   self:refresh()
@@ -707,8 +737,10 @@ end
 
 function ManagerState:matchesProfile(p)
   for _, m in ipairs(self.status.available or {}) do
-    local want = p.enabled[m.id] ~= false
-    if (m.enabled and true or false) ~= want then return false end
+    if not m.always_loaded then
+      local want = p.enabled[m.id] ~= false
+      if (m.enabled and true or false) ~= want then return false end
+    end
   end
   return true
 end
@@ -722,9 +754,10 @@ function ManagerState:applyProfile(p)
   local set = self:enabledSet()
   local combined = {}
   for _, m in ipairs(self.status.available or {}) do
-    local want = p.enabled[m.id] ~= false
-    local cur = set[m.id] and true or false
-    if cur ~= want then
+    if not m.always_loaded then
+      local want = p.enabled[m.id] ~= false
+      local cur = set[m.id] and true or false
+      if cur ~= want then
       local r = ManagerState.resolveToggle(mods, m.id, want, set)
       if #r.missing > 0 or #r.conflicts > 0 or #r.badVersion > 0 then
         self:openBlocked(r)
@@ -734,6 +767,7 @@ function ManagerState:applyProfile(p)
         combined[id] = en
         set[id] = en or nil
       end
+      end
     end
   end
   self:commitToggle(combined)
@@ -742,7 +776,7 @@ function ManagerState:applyProfile(p)
   -- step; save slots move only to slots that version already registered
   -- (SaveData.setActiveSlot would otherwise conjure one).
   for modId, bucket in pairs(p.options or {}) do
-    if self.byId[modId] then
+    if self.byId[modId] and not self.byId[modId].always_loaded then
       for key, value in pairs(bucket) do self:setOption(modId, key, value) end
     end
   end
@@ -769,6 +803,12 @@ function ManagerState:saveCurrentAs()
       opts.modProfiles = opts.modProfiles or {}
       local snap = ModProfile.capture(self.status.available,
         self:modOptionsTable())
+      for _, m in ipairs(self.status.available or {}) do
+        if m.always_loaded then
+          snap.enabled[m.id] = nil
+          snap.options[m.id] = nil
+        end
+      end
       local existing = self:findProfile(name)
       if existing then
         existing.enabled, existing.options, existing.slots =
@@ -1104,8 +1144,13 @@ function ManagerState:drawDetail()
   local rows = self:rowsForScreen()
   local y = 11
   for i, row in ipairs(rows) do
-    drawTruncated(row.label, 32, y * 8, 15)
-    if i == self.cursor then Font.drawCode(Theme.cursor, 24, y * 8) end
+    local label = row.label
+    if row.value then label = label .. " " .. tostring(row.value()) end
+    local compact = row.value ~= nil
+    drawTruncated(label, compact and 16 or 32, y * 8, compact and 18 or 15)
+    if i == self.cursor then
+      Font.drawCode(Theme.cursor, compact and 8 or 24, y * 8)
+    end
     y = y + 1
   end
   self:drawFooter("A:CHOOSE B:BACK")

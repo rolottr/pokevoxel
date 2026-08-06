@@ -9,7 +9,7 @@ test('starts and clears low-HP audio through the real BattleState alarm path', a
   const before = await audio.probe();
 
   await audio.command('4');
-  await expect.poll(() => audio.probe(), { timeout: 15_000 }).toMatchObject({ scene: 'battle', lowHp: true, effect: 'low-hp', musicSources: 1 });
+  await expect.poll(() => audio.probe(), { timeout: 15_000 }).toMatchObject({ scene: 'battle', renderer: 'pokeaudio-hd', lowHp: true, effect: 'low-hp', musicSources: 1 });
   expect((await audio.probe())!.lowHpActivations).toBeGreaterThan(before!.lowHpActivations);
 
   await audio.command('5');

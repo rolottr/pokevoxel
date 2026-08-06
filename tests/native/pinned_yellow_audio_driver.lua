@@ -56,11 +56,18 @@ return function(game)
       assert(ChipAudio.newSfx(game.data, name),
         "could not synthesize SFX " .. name)
       sfxCount = sfxCount + 1
+      if sfxCount % 10 == 0 then
+        print(("[audio] exhaustive progress: %d SFX"):format(sfxCount))
+      end
     end
     for species in pairs(game.data.audio.cries) do
       assert(ChipAudio.newCry(game.data, species),
         "could not synthesize cry " .. species)
       cryCount = cryCount + 1
+      if cryCount % 10 == 0 then
+        print(("[audio] exhaustive progress: %d SFX, %d cries")
+          :format(sfxCount, cryCount))
+      end
     end
     print(("[audio] exhaustive synthesis: %d SFX, %d cries")
       :format(sfxCount, cryCount))

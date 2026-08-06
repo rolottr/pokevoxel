@@ -11,7 +11,10 @@ import { acquireLease, copyDirectory, digestPaths, fileHashes, filesInDirectory,
 const product = resolve(dirname(new URL(import.meta.url).pathname), '..');
 const runtime = join(product, 'runtime');
 const game = join(runtime, 'game');
-const mod = join(runtime, 'mods', 'dramatic-shape');
+const mods = [
+  { id: 'dramatic-shape', path: join(runtime, 'mods', 'dramatic-shape') },
+  { id: 'pokeaudio-hd', path: join(runtime, 'mods', 'pokeaudio-hd') },
+];
 const output = join(product, 'public', 'runtime');
 const lovePackage = join(product, 'node_modules', 'love.js');
 const stockDirectory = join(lovePackage, 'src', 'release');
@@ -33,8 +36,8 @@ const archiveDirectory = (source, destination) => {
   writeFileSync(destination, zipSync(entries, { level: 9 }));
 };
 
-if (!existsSync(game) || !existsSync(mod)) throw new Error('runtime source is incomplete; expected game and dramatic-shape allowlist trees');
-for (const required of ['manifest.json', 'main.lua']) if (!existsSync(join(mod, required))) throw new Error(`built-in dramatic-shape source is incomplete; missing ${required}`);
+if (!existsSync(game) || mods.some((mod) => !existsSync(mod.path))) throw new Error('runtime source is incomplete; expected game and built-in mod trees');
+for (const mod of mods) for (const required of ['manifest.json', 'main.lua']) if (!existsSync(join(mod.path, required))) throw new Error(`built-in ${mod.id} source is incomplete; missing ${required}`);
 for (const [name, expectedHash] of Object.entries(stock)) {
   const path = join(stockDirectory, name);
   if (!existsSync(path) || sha(path) !== expectedHash) throw new Error(`refusing unknown love.js@11.4.1 ${name}; run npm ci`);
@@ -42,7 +45,7 @@ for (const [name, expectedHash] of Object.entries(stock)) {
 
 const inputDigest = digestPaths([
   ...filesInDirectory(game, 'runtime/game/'),
-  ...filesInDirectory(mod, 'runtime/mods/dramatic-shape/'),
+  ...mods.flatMap((mod) => filesInDirectory(mod.path, `runtime/mods/${mod.id}/`)),
   { path: resolve(product, 'scripts', 'build-runtime.mjs'), relativePath: 'scripts/build-runtime.mjs' },
   { path: resolve(product, 'scripts', 'lib', 'harness.mjs'), relativePath: 'scripts/lib/harness.mjs' },
   { path: resolve(product, 'scripts', 'patch-love-runtime.mjs'), relativePath: 'scripts/patch-love-runtime.mjs' },
@@ -83,7 +86,7 @@ try {
       mkdirSync(stage, { recursive: true });
       cpSync(game, stage, { recursive: true });
       mkdirSync(join(stage, 'mods'), { recursive: true });
-      cpSync(mod, join(stage, 'mods', 'dramatic-shape'), { recursive: true });
+      for (const mod of mods) cpSync(mod.path, join(stage, 'mods', mod.id), { recursive: true });
       archiveDirectory(stage, loveArchive);
       execFileSync(process.execPath, [join(lovePackage, 'index.js'), '-t', 'Pokevoxel', '-m', String(memory), loveArchive, candidate], { stdio: 'inherit' });
       rmSync(join(candidate, 'index.html'), { force: true });

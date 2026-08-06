@@ -1,7 +1,7 @@
 import { RomSelectionController } from '../import/RomSelectionController';
 import { romValidationMessage, type RomVersion } from '../import/romValidation';
 import { LoveRuntimeHost } from '../runtime/LoveRuntimeHost';
-import type { LoveRuntimeAdapter } from '../runtime/LoveRuntimeAdapter';
+import type { AudioRendererPreference, LoveRuntimeAdapter } from '../runtime/LoveRuntimeAdapter';
 import type { AudioProbe, BattleProbe, BattleReturnProbe, FirstPersonParityProbe, FirstPersonProbe, FirstPersonReleaseProbe, PersistenceSummary, RuntimeEvent, VoxelOcclusionProbe, VoxelProbe, WaterProbe } from '../runtime/runtimeEvents';
 import type { PersistenceErrorCode, PersistenceStatus } from '../persistence/DurableGenerationStore';
 import { createGameControls } from '../ui/GameControls';
@@ -92,8 +92,12 @@ export class PokevoxelApp {
   private readonly controls = document.createElement('div');
   private initialBoot?: number;
   private cacheRestart?: Promise<void>;
+  private pendingModRestartId?: number;
+  private completedPersistenceId?: number;
   private storagePersistence?: Promise<boolean>;
   private clearingCache = false;
+  private audioRenderer: AudioRendererPreference = 'pokeaudio-hd';
+  private audioRendererOverride = false;
 
   public constructor(private readonly root: HTMLElement) {
     this.controls.className = 'runtime-controls';
@@ -163,7 +167,19 @@ export class PokevoxelApp {
       return;
     }
     if (event.type === 'persistence-request' || event.type === 'persistence-saving') { this.model = { ...this.model, persistenceStatus: 'saving' }; this.render(); return; }
-    if (event.type === 'persistence-complete') { this.model = { ...this.model, persistenceStatus: 'saved', persistenceErrorCode: undefined }; this.render(); return; }
+    if (event.type === 'persistence-complete') {
+      const id = event.payload.id;
+      this.completedPersistenceId = typeof id === 'number' ? id : undefined;
+      this.model = { ...this.model, persistenceStatus: 'saved', persistenceErrorCode: undefined };
+      this.render();
+      if (this.pendingModRestartId === this.completedPersistenceId) this.beginModRuntimeRestart();
+      return;
+    }
+    if (event.type === 'mod-restart-ready') {
+      this.pendingModRestartId = event.payload.id as number;
+      if (this.pendingModRestartId === this.completedPersistenceId) this.beginModRuntimeRestart();
+      return;
+    }
     if (event.type === 'persistence-failed') {
       const code = event.payload.code;
       const persistenceErrorCode = typeof code === 'string' && RECOVERABLE_PERSISTENCE_ERRORS.has(code as PersistenceErrorCode) ? code as PersistenceErrorCode : 'PERSISTENCE_SYNC_FAILED';
@@ -178,6 +194,10 @@ export class PokevoxelApp {
     if (event.type === 'overworld-ready') { this.model = { ...this.model, overworldReady: true }; this.render(); return; }
     if (event.type === 'battle-input-phase') { this.model = { ...this.model, battleInputPhase: event.payload.phase as 'none' | 'menu' | 'move' | 'messages' }; this.render(); return; }
     if (event.type === 'overworld-input-ready') { this.model = { ...this.model, overworldInputReady: event.payload.ready === true }; this.render(); return; }
+    if (event.type === 'audio-preference') {
+      if (!this.audioRendererOverride) this.audioRenderer = event.payload.renderer as AudioRendererPreference;
+      this.render(); return;
+    }
     if (event.type === 'audio-probe') { this.model = { ...this.model, audioProbe: event.payload as AudioProbe }; this.render(); return; }
     if (event.type === 'voxel-ready') { this.model = { ...this.model, voxelProbe: event.payload as VoxelProbe }; this.render(); return; }
     if (event.type === 'voxel-occlusion-probe') { this.model = { ...this.model, voxelOcclusionProbe: event.payload as VoxelOcclusionProbe }; this.render(); return; }
@@ -217,13 +237,40 @@ export class PokevoxelApp {
       .finally(() => { this.cacheRestart = undefined; });
   }
 
+  private beginModRuntimeRestart(): void {
+    if (this.cacheRestart || this.pendingModRestartId === undefined) return;
+    this.pendingModRestartId = undefined;
+    this.completedPersistenceId = undefined;
+    const retained = {
+      gameVersion: this.model.gameVersion,
+      cacheRestored: true,
+      persistenceStatus: this.model.persistenceStatus,
+      persistenceRestored: this.model.persistenceRestored,
+      persistenceCommittedSummary: this.model.persistenceCommittedSummary,
+      persistenceRestoredSummary: this.model.persistenceRestoredSummary,
+      persistenceResumedSummary: this.model.persistenceResumedSummary,
+      storageWarning: this.model.storageWarning,
+    };
+    this.runtime.canvas.setAttribute('aria-hidden', 'true');
+    this.setState('starting', { ...retained, audioState: 'restarting', audioResumeFailed: false });
+    this.cacheRestart = this.host.restartFromPersistentCache(this.runtime.canvas, (event) => this.onRuntimeEvent(event), () => this.onAudioResumeFailed())
+      .then(() => {
+        if (this.host.runtimeRevision) this.runtime.element.dataset.runtimeRevision = this.host.runtimeRevision;
+        if (this.model.state === 'starting') this.setState('cache-ready', { ...retained, runtimePrepared: true });
+      })
+      .catch(() => this.failRuntime('runtime-unavailable'))
+      .finally(() => { this.cacheRestart = undefined; });
+  }
+
   private async startGame(): Promise<void> {
+    const audioRenderer = this.audioRenderer;
     this.dispatch('START', { audioState: 'resuming', audioResumeFailed: false, cacheRestored: this.model.cacheRestored, persistenceRestored: this.model.persistenceRestored, storageWarning: this.model.storageWarning });
     // Start the persistence request in the click stack, before any runtime
     // await. Browsers otherwise treat it as an untrusted background request.
     const persistence = this.storagePersistence ??= this.requestPersistentStorage();
     try {
-      await this.host.startGame();
+      await this.host.startGame(audioRenderer);
+      this.audioRendererOverride = false;
       const persisted = await persistence;
       const storageWarning = persisted ? undefined : 'Browser storage persistence was not granted; keep a backup of important progress.';
       this.model = mergeShellModel(this.model, { ...audioLifecycleDetail(this.model), storageWarning });
@@ -272,6 +319,6 @@ export class PokevoxelApp {
     if (this.model.state !== 'playing') this.gameControls.querySelector('details')?.removeAttribute('open');
     if (this.model.runtimePrepared) this.runtime.element.dataset.runtimePrepared = 'true'; else delete this.runtime.element.dataset.runtimePrepared;
     if (this.model.importPhase) this.runtime.element.dataset.importPhase = this.model.importPhase; else delete this.runtime.element.dataset.importPhase;
-    this.controls.replaceChildren(renderWelcomeScreen({ model: this.model, onFile: (file) => { void this.selectFile(file); }, onReset: () => this.reset(), onClearAcceptedRom: () => this.clearAcceptedRom(), onClearRebuildableCache: () => { void this.clearRebuildableCache(); }, onStartGame: () => { void this.startGame(); }, onReenableAudio: () => { void this.reenableAudio(); } }));
+    this.controls.replaceChildren(renderWelcomeScreen({ model: this.model, audioRenderer: this.audioRenderer, onAudioRendererChange: (renderer) => { this.audioRenderer = renderer; this.audioRendererOverride = true; this.render(); }, onFile: (file) => { void this.selectFile(file); }, onReset: () => this.reset(), onClearAcceptedRom: () => this.clearAcceptedRom(), onClearRebuildableCache: () => { void this.clearRebuildableCache(); }, onStartGame: () => { void this.startGame(); }, onReenableAudio: () => { void this.reenableAudio(); } }));
   }
 }

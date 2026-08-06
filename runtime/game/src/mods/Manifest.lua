@@ -178,6 +178,10 @@ function Manifest.validate(raw, path)
     "experimental must be a boolean")
   local experimental = raw.experimental == true
 
+  assert(raw.always_loaded == nil or type(raw.always_loaded) == "boolean",
+    "always_loaded must be a boolean")
+  local alwaysLoaded = raw.always_loaded == true
+
   -- #501: a translation declares itself here.  Neither the ROM's dialogue
   -- nor the engine's own strings are hashed into the link surface
   -- (src/link/Fingerprint.lua header), so an English install and a Spanish
@@ -222,6 +226,7 @@ function Manifest.validate(raw, path)
     description = raw.description or "",
     github = github,
     experimental = experimental,
+    always_loaded = alwaysLoaded,
     profile = profile,
     language = language,
     affects_link = affectsLink,

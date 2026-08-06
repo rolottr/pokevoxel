@@ -13,7 +13,7 @@ test('cycles deterministic title, map, battle, and victory scenes without leakin
   for (let cycle = 0; cycle < 3; cycle += 1) {
     for (const [key, scene] of scenes) {
       await audio.command(key);
-      await expect.poll(() => audio.probe(), { timeout: 30_000 }).toMatchObject({ scene, musicSources: 1, pcmNonzero: true });
+      await expect.poll(() => audio.probe(), { timeout: 30_000 }).toMatchObject({ scene, renderer: 'pokeaudio-hd', musicSources: 1, pcmNonzero: true });
       await expect.poll(async () => (await audio.probe())?.queued ?? 0, { timeout: 30_000 }).toBeGreaterThan(0);
       const probe = await audio.probe();
       expect(probe?.pcmPeak).toBeGreaterThan(0);

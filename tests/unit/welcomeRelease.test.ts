@@ -25,6 +25,11 @@ describe('tri-version welcome and license release contract', () => {
     expect(welcome).not.toContain('Saved game files were restored on this device.');
     expect(welcome).not.toContain('Ordinary game saves were restored.');
     expect(welcome).toContain('ROM_PROFILES');
+    expect(welcome).toContain("audioInput.type = 'checkbox'");
+    expect(welcome).toContain("audioInput.dataset.testid = 'hd-audio-checkbox'");
+    expect(welcome).toContain("audioRenderer === 'pokeaudio-hd'");
+    expect(welcome).toContain('Use PokeAudio HD');
+    expect(welcome).toContain('original Stock audio driver');
   });
 
   it('publishes Pokevoxel under MIT while retaining both upstream notices', () => {

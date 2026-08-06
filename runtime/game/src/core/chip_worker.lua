@@ -6,8 +6,9 @@
 -- Protocol -- main thread pushes command tables onto the "chipaudio_cmd"
 -- channel and drains produced buffers off "chipaudio_out":
 --   cmd = "play"  { gen, header, allowLoops, audio,
---                   channelVolumes?, channelPitches? }
+--                   renderer?, channelVolumes?, channelPitches? }
 --   cmd = "stop"                                       halt production
+--   cmd = "renderer" { renderer? }                     presentation backend
 --   cmd = "channelMix" { volumes, pitches }            per-hw volume/pitch
 --   cmd = "invalidate"                                 drop the bank cache
 --   cmd = "quit"                                        end the thread
@@ -34,6 +35,7 @@ local BUF = ChipSynth.MUSIC_BUFFER_SAMPLES
 -- pauses.  The deep (~6s) playback depth lives in the main-thread Source; this
 -- only bounds the worker's look-ahead (and its memory) between drains.
 local LOOKAHEAD = 8
+local liveLookahead = LOOKAHEAD
 
 local gen = nil        -- active song generation, or nil when stopped
 local engine = nil     -- the ChipSynth engine producing the current song
@@ -47,6 +49,14 @@ local function handle(cmd)
     engine = nil
     outCh:clear() -- drop any buffers left from the previous song
     data = { audio = cmd.audio }
+    liveLookahead = cmd.liveSwitch == true and 1 or LOOKAHEAD
+    local rendererOk, rendererErr = ChipSynth.setRenderer(cmd.renderer)
+    if not rendererOk then
+      ChipSynth.setRenderer(nil)
+      outCh:push({ gen = gen,
+        warning = "renderer rejected; using stock audio (" ..
+          tostring(rendererErr) .. ")" })
+    end
     if cmd.channelVolumes ~= nil then
       ChipSynth.setChannelVolumes(cmd.channelVolumes)
     end
@@ -66,6 +76,18 @@ local function handle(cmd)
     engine = nil
     finished = false
     outCh:clear()
+  elseif cmd.cmd == "renderer" then
+    if cmd.liveSwitch == true then liveLookahead = 1 end
+    local rendererOk, rendererErr = ChipSynth.setRenderer(cmd.renderer)
+    if not rendererOk then
+      ChipSynth.setRenderer(nil)
+      if gen then
+        outCh:push({ gen = gen,
+          warning = "renderer rejected; using stock audio (" ..
+            tostring(rendererErr) .. ")" })
+      end
+    end
+    if engine and engine.refreshRenderer then engine:refreshRenderer() end
   elseif cmd.cmd == "channelMix" then
     if cmd.volumes ~= nil then ChipSynth.setChannelVolumes(cmd.volumes) end
     if cmd.pitches ~= nil then ChipSynth.setChannelPitches(cmd.pitches) end
@@ -87,14 +109,15 @@ while true do
   end
   if quit then break end
 
-  if engine and not finished and gen and outCh:getCount() < LOOKAHEAD then
+  if engine and not finished and gen and outCh:getCount() < liveLookahead then
     local activeGen = gen
     local ok, sd, pcm = pcall(ChipSynth.soundData, engine, BUF, 2)
     if not ok then
       outCh:push({ gen = activeGen, error = tostring(sd) })
       finished = true
     else
-      outCh:push({ gen = activeGen, sd = sd, pcm = pcm })
+      outCh:push({ gen = activeGen, sd = sd, pcm = pcm,
+        renderer = engine:getRendererId() })
       if engine:finished() then
         outCh:push({ gen = activeGen, done = true })
         finished = true

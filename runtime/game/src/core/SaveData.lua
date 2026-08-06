@@ -28,11 +28,11 @@ local webPersistenceSuppressed = 0
 -- Browser persistence observes completed ordinary writes only.  Keeping the
 -- require here lazy preserves headless/desktop SaveData callers and never
 -- changes their tmp/bak/main write ordering.
-local function requestWebPersistence(fs, domain)
+local function requestWebPersistence(fs, domain, action)
   if webPersistenceSuppressed > 0 then return end
   if fs and love and love.filesystem and fs ~= love.filesystem then return end
   if love and love.system and love.system.getOS and love.system.getOS() == "Web" then
-    require("src.web.WebPersistence").request(domain)
+    require("src.web.WebPersistence").request(domain, action)
   end
 end
 
@@ -358,7 +358,7 @@ end
 -- Both take an optional fs (write/getInfo/read) defaulting to
 -- love.filesystem, so the mod loader's injected filesystem can carry the
 -- options round-trip headless (no love global).
-function SaveData.saveOptions(opts, fs)
+function SaveData.saveOptions(opts, fs, action)
   fs = persistFs(fs)
   opts = SaveData.mergeOptions(opts)
   -- modOptions is per-mod nested state: fold the on-disk sub-tree
@@ -384,7 +384,7 @@ function SaveData.saveOptions(opts, fs)
   if not ok then
     Logger.error("options save failed: %s", tostring(err))
   end
-  if ok then requestWebPersistence(fs, "options") end
+  if ok then requestWebPersistence(fs, "options", action) end
   return ok and opts or nil
 end
 

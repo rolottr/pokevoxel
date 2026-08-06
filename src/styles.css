@@ -40,6 +40,13 @@ h1 span { color: #d34c3b; }
 .rom-sha--yellow { border-color: #edc640; background: rgb(237 198 64 / .15); }
 .rom-sha span { font-weight: 900; }
 .rom-sha code { min-width: 0; color: #31543e; font-size: .67rem; overflow-wrap: anywhere; }
+.audio-driver-choice { margin-top: 1rem; padding: .75rem .85rem; display: flex; gap: .75rem; align-items: center; cursor: pointer; color: #192846; background: rgb(49 84 62 / .09); border: 2px solid rgb(49 84 62 / .32); }
+.audio-driver-choice:hover { background: rgb(49 84 62 / .14); }
+.audio-driver-choice input { width: 1.25rem; height: 1.25rem; flex: 0 0 auto; accent-color: #31543e; }
+.audio-driver-choice input:focus-visible { outline: 3px solid #d34c3b; outline-offset: 3px; }
+.audio-driver-choice span { display: grid; gap: .15rem; }
+.audio-driver-choice strong { font-size: .9rem; }
+.audio-driver-choice small { color: #564827; font-size: .75rem; line-height: 1.35; }
 .shell-status { min-height: 2.8rem; margin: 1.25rem 0 0; padding: .75rem 1rem; color: #213c38; background: #d5e6cf; border-left: 5px solid #31543e; font-weight: 700; }.shell-error .shell-status { color: #6d201c; background: #f6d8ca; border-color: #d34c3b; }
 .shell-actions { margin-top: 1rem; } button { padding: .75rem 1rem; cursor: pointer; color: #fff8d9; background: #254165; border: 2px solid #192846; box-shadow: 3px 3px 0 #d34c3b; font-weight: 800; } button:focus-visible { outline: 3px solid #d34c3b; outline-offset: 3px; }.footer-note { margin: 2rem 0 0; color: #6a5b3d; font-size: .82rem; }
 .panel-tools { position: absolute; top: .8rem; right: .8rem; z-index: 1; display: flex; gap: .45rem; align-items: center; }
