@@ -70,6 +70,11 @@ local liveRendererSwitch = false
 local LIVE_SWITCH_QUEUE_TARGET = 8
 local LIVE_SWITCH_START_TARGET = 4
 
+-- The shallow live-switch queue is deliberate: source-queued buffers cannot
+-- be unqueued, so every queued second plays as stale audio after a live
+-- renderer toggle. Eight buffers bound that to 1.49s. Measured worst stalls
+-- (frame-probe audioQueued floor) never drained the queue below one buffer,
+-- so a deeper queue buys nothing audible and slows every toggle.
 local function queueTarget()
   return liveRendererSwitch and LIVE_SWITCH_QUEUE_TARGET or MUSIC_BUFFER_COUNT
 end
@@ -212,6 +217,8 @@ local function workerAlive()
   local err = worker:getError()
   if err then
     require("src.core.Logger").warn("chip audio worker died: %s", tostring(err))
+    -- Browser diagnostics keep only bounded file.lua:line lines; no payload.
+    print("ChipAudio.lua:224: synthesis worker died")
     workerReady = false
     worker = nil
     return false
@@ -342,12 +349,15 @@ local function updateThreaded()
       m.finished = true
     elseif buf.error then
       require("src.core.Logger").warn("chip audio: %s", tostring(buf.error))
+      print("ChipAudio.lua:352: song finished by worker error")
       m.finished = true
     elseif buf.warning then
       require("src.core.Logger").warn("chip audio: %s", tostring(buf.warning))
+      print("ChipAudio.lua:355: worker warning")
     elseif buf.sd and liveRendererSwitch
         and buf.renderer ~= selectedRenderer then
       -- Drop worker look-ahead rendered before the live switch request.
+      if not m.dropNoted then m.dropNoted = true; print("ChipAudio.lua:360: live-switch buffer drop") end
     elseif buf.sd then
       if free > 0 then
         recordPcm(buf.pcm)

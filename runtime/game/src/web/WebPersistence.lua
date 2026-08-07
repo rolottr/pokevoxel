@@ -49,22 +49,51 @@ local function summary(phase, bundle)
  emitSummary(phase,save,slot,bundle["options.lua"])
 end
 local function snapshot(domain,action) return {domain=domain,files=capture(),action=action} end
+-- Yield only inside the commit worker coroutine; synchronous callers
+-- (hydrate, the luajit protocol spec's direct calls) proceed unchanged.
+local function breathe() if coroutine.running() then coroutine.yield() end end
 function W.request(domain,action)
  if not web() then return end
  if action~=nil and action~="restart-mods" then error("POKEVOXEL_PERSISTENCE_ACTION") end
- if domain=="save" then W.options=nil;W.saves[#W.saves+1]=snapshot("save") else W.options=snapshot("options",action) end
+ if domain=="save" then W.options=nil;W.saves[#W.saves+1]=snapshot("save")
+ -- A rapid burst of plain option changes (hotkey cycling fires several per
+ -- frame) marks the pending snapshot stale instead of re-reading the whole
+ -- save tree once per press; the commit worker re-captures once.
+ elseif W.options and action==nil and W.options.action==nil then W.options.stale=true
+ else W.options=snapshot("options",action) end
 end
 local function nextGen() local seq=love.filesystem.getInfo(SEQ) and love.filesystem.read(SEQ); local max=tonumber(seq or "0") or 0;for _,n in ipairs(love.filesystem.getDirectoryItems(ROOT) or {}) do max=math.max(max,tonumber(n) or 0) end;max=max+1;assert(love.filesystem.write(SEQ,tostring(max)));return tostring(max) end
 local function ack(fn,id,domain) local got,ok,err=fn(id,domain);if err then return nil,err end;if got~=id or ok~=id then return nil,"POKEVOXEL_SYNC_STALE_ACK_MISMATCH" end;return true end
 local function pointers() local r={};for _,p in ipairs(P) do r[p]=love.filesystem.getInfo(p) and love.filesystem.read(p) end;return r end
 local function restorePointers(old) for _,p in ipairs(P) do if old[p] then love.filesystem.write(p,old[p]) elseif love.filesystem.remove then love.filesystem.remove(p) end end end
+-- Remove generation directories the pointer can no longer reach. Every commit
+-- otherwise adds a full copy of the ordinary saves forever, and the browser's
+-- IDBFS sync walks the whole tree on the main thread, so late-session saves
+-- stall longer than early ones. Saves and options at the root are untouched.
+local function pruneGenerations(keepActive,keepPrevious)
+ local function clearGenTree(path)
+  local info=love.filesystem.getInfo(path)
+  if not info then return end
+  if info.type=="directory" then for _,n in ipairs(love.filesystem.getDirectoryItems(path) or {}) do clearGenTree(path.."/"..n) end end
+  love.filesystem.remove(path)
+ end
+ for _,name in ipairs(love.filesystem.getDirectoryItems(ROOT) or {}) do
+  if name~=keepActive and name~=keepPrevious and tonumber(name) then clearGenTree(ROOT..name);breathe() end
+ end
+end
 local function commit(s,dataSync,markerSync)
+ -- A stale coalesced options snapshot re-reads the tree once, here in the
+ -- worker, so the burst that marked it stale never paid per-press captures.
+ if s.stale then s.files=capture();s.stale=nil end
  local g=nextGen();local b=ROOT..g.."/";if love.filesystem.getInfo(b) then return nil,"POKEVOXEL_GENERATION_EXISTS" end;love.filesystem.createDirectory(b.."files");local m={schema=SCHEMA,generation=g,files={}}
- for p,d in pairs(s.files) do local parent=(b.."files/"..p):match("^(.*)/[^/]+$");if parent then love.filesystem.createDirectory(parent) end;assert(love.filesystem.write(b.."files/"..p,d));m.files[#m.files+1]={path=p,sha256=hash(d)} end
+ for p,d in pairs(s.files) do local parent=(b.."files/"..p):match("^(.*)/[^/]+$");if parent then love.filesystem.createDirectory(parent) end;assert(love.filesystem.write(b.."files/"..p,d));m.files[#m.files+1]={path=p,sha256=hash(d)};breathe() end
  table.sort(m.files,function(a,b)return a.path<b.path end);assert(love.filesystem.write(b.."manifest.json",Json.encode(m)));if not manifest(g) then return nil,"POKEVOXEL_SAVE_GENERATION_INVALID" end
+ breathe()
  local id=Events.requestSync();local ok,code=ack(dataSync,id);if not ok then return nil,code end
+ local keepPrevious=W.previous
  local old=pointers();local ptr=Json.encode({schema=SCHEMA,active=g,previous=W.previous});assert(love.filesystem.write(P[2],ptr));if old[P[1]] then assert(love.filesystem.write(P[3],old[P[1]])) end;assert(love.filesystem.write(P[1],ptr));id=Events.requestPersistence(s.domain);ok,code=ack(markerSync,id,s.domain);if not ok then restorePointers(old);return nil,code end;W.previous=g
  summary("committed",s.files)
+ pruneGenerations(g,keepPrevious)
  return true,nil,id
 end
 function W.hydrate() if not web() then return false end;for _,p in ipairs(P) do local raw=love.filesystem.getInfo(p) and love.filesystem.read(p); local q=raw and Json.decode(raw);if type(q)=="table" then for _,g in ipairs({q.active,q.previous}) do local m=g and manifest(g);if m then local wanted={};for _,e in ipairs(m.files) do wanted[e.path]=true end;local live={};collect("",live);for _,x in ipairs(live) do if not wanted[x] and love.filesystem.remove then love.filesystem.remove(x) end end;for _,e in ipairs(m.files) do local par=e.path:match("^(.*)/[^/]+$");if par then love.filesystem.createDirectory(par) end;love.filesystem.write(e.path,assert(love.filesystem.read(ROOT..g.."/files/"..e.path))) end;local bundle={};for _,e in ipairs(m.files) do bundle[e.path]=assert(love.filesystem.read(ROOT..g.."/files/"..e.path)) end;W.previous=g;summary("restored",bundle);Events.emit("persistence-restored","{}");return true end end end end;return false end

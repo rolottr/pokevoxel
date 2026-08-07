@@ -134,3 +134,19 @@ it('accepts exact first-person render and release evidence without save content'
   expect(parseRuntimeEvent(line(65, 'first-person-parity', { ...parity, scenario: 'custom' }))).toBeUndefined();
   expect(parseRuntimeEvent(line(66, 'first-person-parity', { ...parity, flags: {} }))).toBeUndefined();
 });
+
+it('accepts only the bounded numeric frame-pacing probe with its exact key set', () => {
+  const line = (id: number, payload: unknown) => `${RUNTIME_EVENT_PREFIX}${JSON.stringify({ version: 1, id, type: 'frame-probe', frame: 0, payload })}`;
+  const probe = { frames: 120, avgMs: 16.71, p99Ms: 24.5, worstMs: 41.2, avgUpdateMs: 6.1, avgDrawMs: 5.4, avgPresentMs: 1.2,
+    worstUpdateMs: 18.4, worstDrawMs: 12.9, worstPresentMs: 3.3, gcMs: 0, memKb: 21500, drawCalls: 240, canvasSwitches: 7,
+    meshJobs: 2, meshUploads: 5, meshMs: 11.9, shadowMs: 4.7, audioQueued: 4 };
+  expect(parseRuntimeEvent(line(70, probe))?.type).toBe('frame-probe');
+  expect(parseRuntimeEvent(line(71, { ...probe, frames: 0 }))).toBeUndefined();
+  expect(parseRuntimeEvent(line(72, { ...probe, worstMs: -1 }))).toBeUndefined();
+  expect(parseRuntimeEvent(line(73, { ...probe, worstMs: 60_001 }))).toBeUndefined();
+  expect(parseRuntimeEvent(line(74, { ...probe, memKb: 12.5 }))).toBeUndefined();
+  expect(parseRuntimeEvent(line(75, { ...probe, audioQueued: 33 }))).toBeUndefined();
+  expect(parseRuntimeEvent(line(76, { ...probe, rom: 'x' }))).toBeUndefined();
+  const { gcMs: _dropped, ...missing } = probe;
+  expect(parseRuntimeEvent(line(77, missing))).toBeUndefined();
+});

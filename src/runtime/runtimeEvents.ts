@@ -1,6 +1,6 @@
 export const RUNTIME_EVENT_PREFIX = 'POKEVOXEL_EVENT ';
 export const RUNTIME_EVENT_SCHEMA_VERSION = 1;
-export type RuntimeEventType = 'bootstrap-ready' | 'runtime-prepared' | 'import-phase' | 'import-progress' | 'cache-committed' | 'cache-restored' | 'cache-cleared' | 'game-started' | 'title-ready' | 'new-game-started' | 'overworld-ready' | 'voxel-ready' | 'voxel-unready' | 'voxel-occlusion-probe' | 'water-ready' | 'water-unready' | 'battle-ready' | 'battle-returned' | 'first-person-ready' | 'first-person-released' | 'first-person-parity' | 'error' | 'sync-request' | 'persistence-request' | 'persistence-saving' | 'persistence-complete' | 'persistence-failed' | 'persistence-restored' | 'persistence-summary' | 'mod-restart-ready' | 'audio-preference' | 'audio-probe' | 'overworld-input-ready' | 'battle-input-phase';
+export type RuntimeEventType = 'bootstrap-ready' | 'runtime-prepared' | 'import-phase' | 'import-progress' | 'cache-committed' | 'cache-restored' | 'cache-cleared' | 'game-started' | 'title-ready' | 'new-game-started' | 'overworld-ready' | 'voxel-ready' | 'voxel-unready' | 'voxel-occlusion-probe' | 'water-ready' | 'water-unready' | 'battle-ready' | 'battle-returned' | 'first-person-ready' | 'first-person-released' | 'first-person-parity' | 'error' | 'sync-request' | 'persistence-request' | 'persistence-saving' | 'persistence-complete' | 'persistence-failed' | 'persistence-restored' | 'persistence-summary' | 'mod-restart-ready' | 'audio-preference' | 'audio-probe' | 'frame-probe' | 'overworld-input-ready' | 'battle-input-phase';
 export type RuntimeEvent = Readonly<{ version: 1; id: number; type: RuntimeEventType; frame: number; payload: Record<string, unknown> }>;
 export type AudioProbe = Readonly<{ scene: 'none' | 'title' | 'overworld' | 'battle' | 'victory'; renderer: 'stock' | 'pokeaudio-hd'; queued: number; playing: boolean; effect: 'none' | 'sfx' | 'low-hp'; effectId: number; lowHp: boolean; musicSources: number; pcmPeak: number; pcmFrames: number; pcmNonzero: boolean; musicVolume: number; sfxVolume: number; lowHpActivations: number; victoryActivations: number }>;
 /** Bounded, semantic evidence emitted only after the active voxel pipeline draws. */
@@ -14,6 +14,8 @@ export type FirstPersonProbe = Readonly<{ map: string; cellX: number; cellY: num
 export type FirstPersonReleaseProbe = Readonly<{ map: string; cellX: number; cellY: number; facing: 'up' | 'down' | 'left' | 'right'; surfing: boolean; driving: boolean; captured: false; sequence: number }>;
 export type FirstPersonParityProbe = Readonly<{ scenario: 'outdoor' | 'indoor' | 'cave' | 'water' | 'scripted-warp' | 'random-encounter'; map: string; cellX: number; cellY: number; facing: 'up' | 'down' | 'left' | 'right'; surfing: boolean; flagsSame: boolean; transitioning: boolean }>;
 export type PersistenceSummary = Readonly<{ phase: 'committed' | 'restored' | 'resumed'; version: 'red' | 'blue' | 'yellow'; slot: string; partyCount: number; map: string; x: number; y: number; optionsSha256: string }>;
+/** Bounded numeric frame-pacing evidence aggregated over one Lua-side window. */
+export type FrameProbe = Readonly<{ frames: number; avgMs: number; p99Ms: number; worstMs: number; avgUpdateMs: number; avgDrawMs: number; avgPresentMs: number; worstUpdateMs: number; worstDrawMs: number; worstPresentMs: number; gcMs: number; memKb: number; drawCalls: number; canvasSwitches: number; meshJobs: number; meshUploads: number; meshMs: number; shadowMs: number; audioQueued: number }>;
 
 /** Parses only the bounded schema emitted by BrowserEvents.lua. */
 export function parseRuntimeEvent(line: string): RuntimeEvent | undefined {
@@ -33,6 +35,7 @@ export function parseRuntimeEvent(line: string): RuntimeEvent | undefined {
     if (event.type === 'overworld-input-ready' && Object.keys(event.payload as Record<string, unknown>).length !== 1) return undefined;
     if (event.type === 'overworld-input-ready' && typeof (event.payload as Record<string, unknown>).ready !== 'boolean') return undefined;
     if (event.type === 'audio-probe' && !isAudioProbe(event.payload as Record<string, unknown>)) return undefined;
+    if (event.type === 'frame-probe' && !isFrameProbe(event.payload as Record<string, unknown>)) return undefined;
     if (event.type === 'voxel-ready' && !isVoxelProbe(event.payload as Record<string, unknown>)) return undefined;
     if (event.type === 'voxel-occlusion-probe' && !isVoxelOcclusionProbe(event.payload as Record<string, unknown>)) return undefined;
     if (event.type === 'water-ready' && !isWaterProbe(event.payload as Record<string, unknown>)) return undefined;
@@ -46,7 +49,7 @@ export function parseRuntimeEvent(line: string): RuntimeEvent | undefined {
     return event as RuntimeEvent;
   } catch { return undefined; }
 }
-function isRuntimeEventType(value: unknown): value is RuntimeEventType { return value === 'bootstrap-ready' || value === 'runtime-prepared' || value === 'import-phase' || value === 'import-progress' || value === 'cache-committed' || value === 'cache-restored' || value === 'cache-cleared' || value === 'game-started' || value === 'title-ready' || value === 'new-game-started' || value === 'overworld-ready' || value === 'voxel-ready' || value === 'voxel-unready' || value === 'voxel-occlusion-probe' || value === 'water-ready' || value === 'water-unready' || value === 'battle-ready' || value === 'battle-returned' || value === 'first-person-ready' || value === 'first-person-released' || value === 'first-person-parity' || value === 'error' || value === 'sync-request' || value === 'persistence-request' || value === 'persistence-saving' || value === 'persistence-complete' || value === 'persistence-failed' || value === 'persistence-restored' || value === 'persistence-summary' || value === 'mod-restart-ready' || value === 'audio-preference' || value === 'audio-probe' || value === 'overworld-input-ready' || value === 'battle-input-phase'; }
+function isRuntimeEventType(value: unknown): value is RuntimeEventType { return value === 'bootstrap-ready' || value === 'runtime-prepared' || value === 'import-phase' || value === 'import-progress' || value === 'cache-committed' || value === 'cache-restored' || value === 'cache-cleared' || value === 'game-started' || value === 'title-ready' || value === 'new-game-started' || value === 'overworld-ready' || value === 'voxel-ready' || value === 'voxel-unready' || value === 'voxel-occlusion-probe' || value === 'water-ready' || value === 'water-unready' || value === 'battle-ready' || value === 'battle-returned' || value === 'first-person-ready' || value === 'first-person-released' || value === 'first-person-parity' || value === 'error' || value === 'sync-request' || value === 'persistence-request' || value === 'persistence-saving' || value === 'persistence-complete' || value === 'persistence-failed' || value === 'persistence-restored' || value === 'persistence-summary' || value === 'mod-restart-ready' || value === 'audio-preference' || value === 'audio-probe' || value === 'frame-probe' || value === 'overworld-input-ready' || value === 'battle-input-phase'; }
 const BATTLE_CATEGORIES = ['wild', 'trainer', 'rival', 'gym', 'jessie-james', 'legendary', 'elite-four', 'final'];
 function isBattleProbe(value: Record<string, unknown>): boolean {
   return Object.keys(value).sort().join(',') === 'category,fallback,kind,map,staged'
@@ -130,6 +133,19 @@ function isAudioProbe(value: Record<string, unknown>): boolean {
     && Number.isInteger(value.musicVolume) && (value.musicVolume as number) >= 0 && (value.musicVolume as number) <= 7
     && Number.isSafeInteger(value.victoryActivations) && (value.victoryActivations as number) >= 0 && (value.victoryActivations as number) <= 1_000_000
     && Number.isInteger(value.sfxVolume) && (value.sfxVolume as number) >= 0 && (value.sfxVolume as number) <= 7;
+}
+function isFrameProbe(value: Record<string, unknown>): boolean {
+  const keys = Object.keys(value).sort();
+  if (keys.join(',') !== 'audioQueued,avgDrawMs,avgMs,avgPresentMs,avgUpdateMs,canvasSwitches,drawCalls,frames,gcMs,memKb,meshJobs,meshMs,meshUploads,p99Ms,shadowMs,worstDrawMs,worstMs,worstPresentMs,worstUpdateMs') return false;
+  const boundedMs = (candidate: unknown): boolean => typeof candidate === 'number' && Number.isFinite(candidate) && candidate >= 0 && candidate <= 60_000;
+  return Number.isSafeInteger(value.frames) && (value.frames as number) >= 1 && (value.frames as number) <= 2_000
+    && ['avgMs', 'p99Ms', 'worstMs', 'avgUpdateMs', 'avgDrawMs', 'avgPresentMs', 'worstUpdateMs', 'worstDrawMs', 'worstPresentMs', 'gcMs', 'meshMs', 'shadowMs'].every((key) => boundedMs(value[key]))
+    && Number.isSafeInteger(value.memKb) && (value.memKb as number) >= 0 && (value.memKb as number) <= 4_194_304
+    && Number.isSafeInteger(value.drawCalls) && (value.drawCalls as number) >= 0 && (value.drawCalls as number) <= 1_000_000
+    && Number.isSafeInteger(value.canvasSwitches) && (value.canvasSwitches as number) >= 0 && (value.canvasSwitches as number) <= 1_000_000
+    && Number.isSafeInteger(value.meshJobs) && (value.meshJobs as number) >= 0 && (value.meshJobs as number) <= 100_000
+    && Number.isSafeInteger(value.meshUploads) && (value.meshUploads as number) >= 0 && (value.meshUploads as number) <= 100_000
+    && Number.isSafeInteger(value.audioQueued) && (value.audioQueued as number) >= 0 && (value.audioQueued as number) <= 32;
 }
 function isAudioPreference(value: Record<string, unknown>): boolean {
   return Object.keys(value).join(',') === 'renderer'

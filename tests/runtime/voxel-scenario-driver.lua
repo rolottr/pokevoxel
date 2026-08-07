@@ -19,8 +19,15 @@ local function game()
   assert(_G.POKEVOXEL_GAME and _G.POKEVOXEL_GAME.overworld,
     "voxel scenario requires a running overworld")
   local G = _G.POKEVOXEL_GAME
+  -- Exactly the audited built-ins may be loaded: Dramatic Shape must be
+  -- present and nothing outside the bundled pair may join it.
   local loaded = G.modStatus and G.modStatus.loaded or {}
-  if #loaded ~= 1 or loaded[1].id ~= "DRAMATIC_SHAPE" then
+  local shape, foreign = nil, false
+  for _, mod in ipairs(loaded) do
+    if mod.id == "DRAMATIC_SHAPE" then shape = mod
+    elseif mod.id ~= "pokeaudio-hd" then foreign = true end
+  end
+  if not shape or foreign then
     local reason = (G.modStatus and G.modStatus.errors and G.modStatus.errors[1])
       or "unknown"
     reason = tostring(reason):upper():gsub("[^A-Z0-9_]+", "_"):sub(1, 96)
@@ -256,6 +263,9 @@ local function hidePalletOcclusionNpc()
 end
 
 function Driver.handle(key)
+  -- The harness reserves 0 for one phase transition: push the live overworld
+  -- (the Pallet fixture) before any numbered scenario command.
+  if key == "0" then return loadFixture(fixtures["1"]) end
   if fixtures[key] then return loadFixture(fixtures[key]) end
   if key == "5" then return palletHouseDoor() end
   if key == "6" then return palletHouseExit() end

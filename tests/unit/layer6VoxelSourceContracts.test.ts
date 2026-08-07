@@ -49,7 +49,8 @@ describe('Layer 6 voxel harness contracts', () => {
 
   it('loads only the fixed audited built-in and leaves menu composition above the world pass', () => {
     const loader = text('runtime', 'game', 'src', 'mods', 'Loader.lua');
-    expect(loader).toContain('local path = "mods/dramatic-shape"');
+    expect(loader).toContain('{ id = "DRAMATIC_SHAPE", path = "mods/dramatic-shape" }');
+    expect(loader).toContain('{ id = "pokeaudio-hd", path = "mods/pokeaudio-hd" }');
     expect(loader).not.toContain('self.fs.getDirectoryItems(root)');
     const stack = text('runtime', 'game', 'src', 'core', 'StateStack.lua');
     expect(stack).toContain('for i = self:visibleBase(), #self.states do');

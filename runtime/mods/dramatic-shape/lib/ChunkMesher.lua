@@ -116,6 +116,8 @@ end
 -- skipping ~a million short-lived Lua tables per route and LOVE's slow
 -- table-by-table vertex upload.
 
+local TRI_ORDER = { 1, 2, 3, 1, 3, 4 }
+
 local function newTableSink()
   local verts, indices, quads = {}, {}, 0
   return {
@@ -132,13 +134,46 @@ local function newTableSink()
     results = function()
       return verts, indices, quads
     end,
+    -- Upload in slices with budget ticks between, like the FFI sink: the
+    -- interpreter path (browser wasm has no FFI) otherwise converts a
+    -- route-sized million-entry vertex table in one atomic newMesh call --
+    -- a several-hundred-millisecond frame spike. Expanding TRI_ORDER here
+    -- keeps push()/results() (the headless geometry API) fully indexed
+    -- while the uploaded mesh is unindexed, exactly like the FFI sink's.
+    -- Budget.check() must sit OUTSIDE every pcall: plain Lua 5.1 cannot
+    -- yield across a pcall boundary (only LuaJIT can, which is what the
+    -- FFI sink's in-pcall slicing relies on natively).
     finish = function()
-      return Voxel3D.newMesh(verts, indices)
+      if quads == 0 then return nil end
+      local okNew, m = pcall(love.graphics.newMesh, Voxel3D.FORMAT,
+                             quads * 6, "triangles", "static")
+      if not okNew or not m then return nil end
+      local SLICE_QUADS = 2048           -- 12288 vertices (~300KB) per slice
+      local slice, filled, base = {}, 0, 0
+      for q = 0, quads - 1 do
+        local v = q * 4
+        for k = 1, 6 do
+          filled = filled + 1
+          slice[filled] = verts[v + TRI_ORDER[k]]
+        end
+        if filled >= SLICE_QUADS * 6 then
+          if not pcall(m.setVertices, m, slice, base + 1) then
+            pcall(m.release, m)
+            return nil
+          end
+          base = base + filled
+          slice, filled = {}, 0
+          Budget.check()
+        end
+      end
+      if filled > 0 and not pcall(m.setVertices, m, slice, base + 1) then
+        pcall(m.release, m)
+        return nil
+      end
+      return m
     end,
   }
 end
-
-local TRI_ORDER = { 1, 2, 3, 1, 3, 4 }
 
 local function newFfiSink()
   local cap = 4096 * 6
@@ -885,9 +920,14 @@ local function releaseFigures(list)
 end
 
 -- Replace a cached slot, releasing whatever mesh it held.
+-- Web perf evidence: the browser bootstrap owns and drains this table; a
+-- native session sees the fallback locals and pays only two additions.
+local PERF = _G.POKEVOXEL_PERF or { meshJobs = 0, meshUploads = 0, meshMs = 0, shadowMs = 0 }
+
 local function swapSlot(c, slot, mesh)
   local old = c[slot]
   if old and old ~= mesh and old.release then pcall(old.release, old) end
+  if mesh then PERF.meshUploads = PERF.meshUploads + 1 end
   c[slot] = mesh
 end
 
@@ -934,6 +974,7 @@ local function jobKey(id, slot)
 end
 
 local function finishJob(job, ok, err)
+  if ok then PERF.meshJobs = PERF.meshJobs + 1 end
   jobIndex[jobKey(job.id, job.slot)] = nil
   for i, j in ipairs(jobs) do
     if j == job then
