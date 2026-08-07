@@ -108,8 +108,10 @@ describe('Layer 7A water source contracts', () => {
     expect(voxel).toContain('return made:getDimensions()');
     expect(voxel).toContain('dimensionsOk and madeW == w and madeH == h');
     expect(voxel).toContain('pcall(function() c:setDepthSampleMode() end)');
-    expect(voxel).toContain('pcall(function() mesh:setTexture(texture) end)');
-    expect(voxel).toContain('pcall(function() love.graphics.draw(mesh) end)');
+    expect(voxel).toContain('pcall(applyMeshTexture, mesh, texture)');
+    expect(voxel).toContain('pcall(drawMesh, mesh)');
+    expect(voxel).toContain('local function applyMeshTexture(mesh, texture) mesh:setTexture(texture) end');
+    expect(voxel).toContain('local function drawMesh(mesh) love.graphics.draw(mesh) end');
     expect(voxel).toContain('POKEVOXEL_VOXEL_SHADER_UNAVAILABLE');
     expect(voxel).toContain('POKEVOXEL_VOXEL_CANVAS_UNAVAILABLE');
     expect(voxel).toContain('POKEVOXEL_VOXEL_DEPTH_UNAVAILABLE');
@@ -138,8 +140,9 @@ describe('Layer 7A water source contracts', () => {
   it('contains optional shadow-caster GPU failures without accepting a flat water fallback', () => {
     const shadow = text('runtime', 'mods', 'dramatic-shape', 'lib', 'ShadowMap.lua');
     expect(shadow).not.toContain('pcall(mesh.setTexture, mesh, texture)');
-    expect(shadow).toContain('pcall(function() mesh:setTexture(texture) end)');
-    expect(shadow).toContain('return pcall(function() love.graphics.draw(mesh) end)');
+    expect(shadow).toContain('pcall(applyMeshTexture, mesh, texture)');
+    expect(shadow).toContain('return pcall(drawMesh, mesh)');
+    expect(shadow).toContain('local function applyMeshTexture(mesh, texture) mesh:setTexture(texture) end');
     expect(text('runtime', 'mods', 'dramatic-shape', 'lib', 'VoxelScene.lua')).toContain('return false, lastWaterEvidence.failure');
   });
 });

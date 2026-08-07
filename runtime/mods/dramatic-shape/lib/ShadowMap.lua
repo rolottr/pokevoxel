@@ -547,17 +547,23 @@ function ShadowMap.sprites(on)
   if sh then pcall(sh.send, sh, "sprite", on and 1 or 0) end
 end
 
+-- Hoisted protected helpers: no per-caster closure allocation; indexing stays
+-- inside the pcall boundary (see Voxel3D.draw for the same shape).
+local function applyMeshTexture(mesh, texture) mesh:setTexture(texture) end
+local function sendMatrixRow(sh, name, matrix) sh:send(name, "row", matrix) end
+local function drawMesh(mesh) love.graphics.draw(mesh) end
+
 function ShadowMap.draw(mesh, texture, model)
   if not (drawing and mesh) then return false end
   local sh = getShader()
   -- Optional casters must never abort the whole voxel frame on a GPU-specific
   -- mesh/texture limitation. A failed caster is omitted; the mandatory water
   -- reflection pass still owns G008 capability acceptance later in the frame.
-  if texture and not pcall(function() mesh:setTexture(texture) end) then
+  if texture and not pcall(applyMeshTexture, mesh, texture) then
     return false
   end
-  pcall(function() sh:send("model", "row", model or IDENTITY) end)
-  return pcall(function() love.graphics.draw(mesh) end)
+  pcall(sendMatrixRow, sh, "model", model or IDENTITY)
+  return pcall(drawMesh, mesh)
 end
 
 -- Close one pass and stamp only the half it updated.

@@ -280,7 +280,9 @@ mod.content.render_pipelines:register("voxel", {
       local Game = require("src.core.Game")
       local ow = Game and Game.overworld
       if ow and ow.map and ow.camera then VoxelScene.prefetch(ow) end
+      local perf, pumpStart = _G.POKEVOXEL_PERF, love.timer.getTime()
       ChunkMesher.pump(Game and Game.stack and Game.stack:top() ~= ow)
+      if perf then perf.meshMs = perf.meshMs + (love.timer.getTime() - pumpStart) end
     end)
     if not ok then
       clearReady()

@@ -16,8 +16,14 @@ local encounters = {
 
 local function game()
   local G = assert(_G.POKEVOXEL_GAME, "battle scenario requires a running game")
+  -- Dramatic Shape must be loaded and only the audited built-in pair may be.
   local loaded = G.modStatus and G.modStatus.loaded or {}
-  assert(#loaded == 1 and loaded[1].id == "DRAMATIC_SHAPE",
+  local shape, foreign = nil, false
+  for _, mod in ipairs(loaded) do
+    if mod.id == "DRAMATIC_SHAPE" then shape = mod
+    elseif mod.id ~= "pokeaudio-hd" then foreign = true end
+  end
+  assert(shape and not foreign,
     "battle scenario requires the built-in Dramatic Shape mod")
   return G
 end

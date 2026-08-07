@@ -2,10 +2,10 @@ import type { ShellState } from '../app/PokevoxelApp';
 import { ROM_PROFILES, type RomVersion } from '../import/romValidation';
 import type { PersistenceErrorCode, PersistenceStatus } from '../persistence/DurableGenerationStore';
 import type { AudioRendererPreference } from '../runtime/LoveRuntimeAdapter';
-import type { AudioProbe, BattleProbe, BattleReturnProbe, FirstPersonParityProbe, FirstPersonProbe, FirstPersonReleaseProbe, PersistenceSummary, VoxelOcclusionProbe, VoxelProbe, WaterProbe } from '../runtime/runtimeEvents';
+import type { AudioProbe, BattleProbe, BattleReturnProbe, FirstPersonParityProbe, FirstPersonProbe, FirstPersonReleaseProbe, FrameProbe, PersistenceSummary, VoxelOcclusionProbe, VoxelProbe, WaterProbe } from '../runtime/runtimeEvents';
 
 export type WelcomeScreenOptions = {
-  model: { state: ShellState; gameVersion?: RomVersion; error?: string; errorCode?: string; progress?: number; audioState?: string; audioResumeFailed?: boolean; cacheRestored?: boolean; titleReady?: boolean; newGameStarted?: boolean; overworldReady?: boolean; persistenceStatus?: PersistenceStatus; persistenceErrorCode?: PersistenceErrorCode; persistenceRestored?: boolean; persistenceCommittedSummary?: PersistenceSummary; persistenceRestoredSummary?: PersistenceSummary; persistenceResumedSummary?: PersistenceSummary; audioProbe?: AudioProbe; voxelProbe?: VoxelProbe; voxelOcclusionProbe?: VoxelOcclusionProbe; waterProbe?: WaterProbe; battleProbe?: BattleProbe; battleReturnProbe?: BattleReturnProbe; firstPersonProbe?: FirstPersonProbe; firstPersonReleaseProbe?: FirstPersonReleaseProbe; firstPersonParityProbe?: FirstPersonParityProbe; overworldInputReady?: boolean; battleInputPhase?: 'none' | 'menu' | 'move' | 'messages'; storageWarning?: string };
+  model: { state: ShellState; gameVersion?: RomVersion; error?: string; errorCode?: string; progress?: number; audioState?: string; audioResumeFailed?: boolean; cacheRestored?: boolean; titleReady?: boolean; newGameStarted?: boolean; overworldReady?: boolean; persistenceStatus?: PersistenceStatus; persistenceErrorCode?: PersistenceErrorCode; persistenceRestored?: boolean; persistenceCommittedSummary?: PersistenceSummary; persistenceRestoredSummary?: PersistenceSummary; persistenceResumedSummary?: PersistenceSummary; audioProbe?: AudioProbe; frameProbe?: FrameProbe; voxelProbe?: VoxelProbe; voxelOcclusionProbe?: VoxelOcclusionProbe; waterProbe?: WaterProbe; battleProbe?: BattleProbe; battleReturnProbe?: BattleReturnProbe; firstPersonProbe?: FirstPersonProbe; firstPersonReleaseProbe?: FirstPersonReleaseProbe; firstPersonParityProbe?: FirstPersonParityProbe; overworldInputReady?: boolean; battleInputPhase?: 'none' | 'menu' | 'move' | 'messages'; storageWarning?: string };
   onFile: (file: File) => void;
   onReset: () => void;
   onClearAcceptedRom: () => void;
@@ -91,6 +91,10 @@ export function renderWelcomeScreen({ model, onFile, onReset, onClearAcceptedRom
     if (model.voxelProbe) {
       const probe = document.createElement('p'); probe.className = 'visually-hidden'; probe.dataset.testid = 'voxel-probe';
       probe.textContent = JSON.stringify(model.voxelProbe); shell.append(probe);
+    }
+    if (model.frameProbe) {
+      const probe = document.createElement('p'); probe.className = 'visually-hidden'; probe.dataset.testid = 'frame-probe';
+      probe.textContent = JSON.stringify(model.frameProbe); shell.append(probe);
     }
     if (model.voxelOcclusionProbe) {
       const probe = document.createElement('p'); probe.className = 'visually-hidden'; probe.dataset.testid = 'voxel-occlusion-probe';

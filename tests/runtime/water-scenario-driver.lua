@@ -14,8 +14,15 @@ local function game()
     require("src.web.BrowserEvents").error(code)
     error(code, 0)
   end
+  -- Exactly the audited built-ins may be loaded: Dramatic Shape must be
+  -- present and nothing outside the bundled pair may join it.
   local loaded = G.modStatus and G.modStatus.loaded or {}
-  if #loaded ~= 1 or loaded[1].id ~= "DRAMATIC_SHAPE" then
+  local shape, foreign = nil, false
+  for _, mod in ipairs(loaded) do
+    if mod.id == "DRAMATIC_SHAPE" then shape = mod
+    elseif mod.id ~= "pokeaudio-hd" then foreign = true end
+  end
+  if not shape or foreign then
     local reason = (G.modStatus and G.modStatus.errors and G.modStatus.errors[1])
       or "unknown"
     reason = tostring(reason):upper():gsub("[^A-Z0-9_]+", "_"):sub(1, 96)

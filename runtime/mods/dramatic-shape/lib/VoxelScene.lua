@@ -991,9 +991,11 @@ function VoxelScene.render(state, w, h, vw, vh, paletteFor, eyes)
   end
 
   local shadowX, shadowY = FirstPerson.shadowCenter(cx, cy, vh)
+  local perf, shadowStart = _G.POKEVOXEL_PERF, love.timer.getTime()
   local shadowsOk = pcall(castShadows, state, terrain, nbMesh, posed,
                           shadowX, shadowY, vw, vh, atlasFor,
                           water, nbWater, nil, nil)
+  if perf then perf.shadowMs = perf.shadowMs + (love.timer.getTime() - shadowStart) end
   if not shadowsOk then
     return nil, "POKEVOXEL_VOXEL_SHADOW_PASS_EXCEPTION"
   end

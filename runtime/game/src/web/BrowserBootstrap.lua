@@ -5,6 +5,30 @@ local WebPersistence=require("src.web.WebPersistence")
 local Json=require("src.link.Json")
 local GameVersion=require("src.core.GameVersion")
 local B={state="waiting-import",browserFocused=true,focusSequence=0}; local ROM="/tmp/pokevoxel-rom.gb"
+-- Shared perf counters: mods add their own frame work here; frameSample drains
+-- the table each probe window. Created before any mod loads.
+_G.POKEVOXEL_PERF=_G.POKEVOXEL_PERF or {meshJobs=0,meshUploads=0,meshMs=0,shadowMs=0}
+local PERF_WINDOW=120
+local perf={n=0,sumDt=0,worst=0,sumU=0,sumD=0,sumP=0,wU=0,wD=0,wP=0,wDraw=0,wSwitch=0,gc=0,dts={}}
+-- Called once per frame from love.run with wall dt and the measured slices.
+function B.frameSample(dt,updateMs,drawMs,presentMs,drawCalls,canvasSwitches,gcMs)
+ if B.state~="running" then return end
+ local n=perf.n+1; perf.n=n
+ local frameMs=dt*1000
+ perf.dts[n]=frameMs
+ perf.sumDt=perf.sumDt+frameMs; perf.sumU=perf.sumU+updateMs; perf.sumD=perf.sumD+drawMs; perf.sumP=perf.sumP+presentMs; perf.gc=perf.gc+(gcMs or 0)
+ if frameMs>perf.worst then perf.worst=frameMs; perf.wU=updateMs; perf.wD=drawMs; perf.wP=presentMs; perf.wDraw=drawCalls; perf.wSwitch=canvasSwitches end
+ if n<PERF_WINDOW then return end
+ table.sort(perf.dts)
+ local mod=_G.POKEVOXEL_PERF
+ require("src.web.BrowserEvents").frameProbe({frames=n,avgMs=perf.sumDt/n,p99Ms=perf.dts[math.max(1,math.floor(n*0.99))],worstMs=perf.worst,
+  avgUpdateMs=perf.sumU/n,avgDrawMs=perf.sumD/n,avgPresentMs=perf.sumP/n,worstUpdateMs=perf.wU,worstDrawMs=perf.wD,worstPresentMs=perf.wP,
+  gcMs=perf.gc,memKb=collectgarbage("count"),drawCalls=perf.wDraw,canvasSwitches=perf.wSwitch,
+  meshJobs=mod.meshJobs,meshUploads=mod.meshUploads,meshMs=mod.meshMs*1000,shadowMs=mod.shadowMs*1000,audioQueued=B.lastQueued or 0})
+ perf.n=0;perf.sumDt=0;perf.worst=0;perf.sumU=0;perf.sumD=0;perf.sumP=0;perf.wU=0;perf.wD=0;perf.wP=0;perf.wDraw=0;perf.wSwitch=0;perf.gc=0
+ for i=1,n do perf.dts[i]=nil end
+ mod.meshJobs=0;mod.meshUploads=0;mod.meshMs=0;mod.shadowMs=0
+end
 local AUDIO_RENDERER="/tmp/pokevoxel-audio-renderer"; local AUDIO_MOD="pokeaudio-hd"
 local MANIFESTS={red="import-manifests/rom_manifest.json",blue="import-manifests/rom_manifest_blue.json",yellow="import-manifests/rom_manifest_yellow.json"}
 local function sha1(data)
@@ -26,8 +50,14 @@ local function emitAudioPreference(G)
 end
 local function emitAudioProbe()
  local probe=require("src.core.ChipAudio").audioProbe()
+ -- The frame probe reports the real depth (bounded by the source capacity of
+ -- 32) so queue claims stay verifiable; the audio probe keeps its 0..8 clamp.
+ B.lastQueued=math.max(0,math.min(32,tonumber(probe.queued) or 0))
  local queued=math.max(0,math.min(8,tonumber(probe.queued) or 0))
- local signature=table.concat({probe.scene,probe.renderer,queued>0 and "1" or "0",probe.playing and "1" or "0",probe.effectId,probe.lowHp and "1" or "0",probe.musicSources,probe.pcmPeak,probe.pcmNonzero and "1" or "0",probe.musicVolume,probe.sfxVolume,probe.lowHpActivations,probe.victoryActivations},":")
+ -- pcmPeak varies with every queued buffer; keying the change signature on it
+ -- forced a browser-side emission (and a shell DOM render) several times a
+ -- second. pcmNonzero already tracks the semantic fact the E2E gate needs.
+ local signature=table.concat({probe.scene,probe.renderer,queued>0 and "1" or "0",probe.playing and "1" or "0",probe.effectId,probe.lowHp and "1" or "0",probe.musicSources,probe.pcmNonzero and "1" or "0",probe.musicVolume,probe.sfxVolume,probe.lowHpActivations,probe.victoryActivations},":")
  if signature==B.lastAudioProbe then return end
  B.lastAudioProbe=signature
  Events.emit("audio-probe",string.format('{"scene":"%s","renderer":"%s","queued":%d,"playing":%s,"effect":"%s","effectId":%d,"lowHp":%s,"musicSources":%d,"pcmPeak":%d,"pcmFrames":%d,"pcmNonzero":%s,"musicVolume":%d,"sfxVolume":%d,"lowHpActivations":%d,"victoryActivations":%d}',probe.scene,probe.renderer,queued,probe.playing and "true" or "false",probe.effect,probe.effectId,probe.lowHp and "true" or "false",probe.musicSources,probe.pcmPeak,probe.pcmFrames,probe.pcmNonzero and "true" or "false",probe.musicVolume,probe.sfxVolume,probe.lowHpActivations,probe.victoryActivations))
@@ -87,6 +117,10 @@ local function prepareCachedGame()
  return true
 end
 function B.load(args)
+ -- The interpreter heap holds route-scale mesh tables; the default 200% GC
+ -- pause lets the wasm heap double past the 512MiB initial allocation before
+ -- a major collect. Collect earlier: smaller heap, shorter incremental steps.
+ collectgarbage("setpause", 120)
  B.ready=true; Events.emit("bootstrap-ready","{}"); Events.emit("runtime-prepared","{}")
  if clearRequested(args) then B.clearWorker=coroutine.create(clearCache); return end
  -- A raw staged ROM belongs to the one-shot import runtime. A fresh runtime
@@ -192,9 +226,14 @@ function B.update(dt)
  local G=_G.POKEVOXEL_GAME
  G:update(dt)
   emitAudioPreference(G)
-  emitAudioProbe()
-  for _, state in ipairs(G.stack.states or {}) do
-   if not B.titleReady and state.screenId=="TitleState" and state.phase=="loop" then B.titleReady=true; Events.emit("title-ready", "{}") end
+  -- The probe reads two OpenAL queries and builds its signature string; a
+  -- 100ms cadence keeps every E2E poll responsive without per-frame garbage.
+  B.probeTick=(B.probeTick or 0)+1
+  if B.probeTick%6==0 then emitAudioProbe() end
+  if not B.titleReady then
+   for _, state in ipairs(G.stack.states or {}) do
+    if state.screenId=="TitleState" and state.phase=="loop" then B.titleReady=true; Events.emit("title-ready", "{}") end
+   end
   end
   -- Readiness means the live, concrete overworld instance owns the top of
   -- the stack. A loose `isOverworld` scan can observe stale/prototype state
@@ -207,9 +246,11 @@ function B.update(dt)
   if not B.overworldReady and G.save and G.overworld and top==G.overworld and top.isOverworld then
    B.overworldReady=true; Events.emit("overworld-ready",versionPayload(GameVersion.get()))
   end
-  local configured=(G:bootConfig().screens or {}).newGame or "OakSpeech"
-  for _, state in ipairs(G.stack.states or {}) do
-   if B.titleReady and not B.newGameReady and state.screenId==configured then B.newGameReady=true; Events.emit("new-game-started", "{}") end
+  if B.titleReady and not B.newGameReady then
+   local configured=(G:bootConfig().screens or {}).newGame or "OakSpeech"
+   for _, state in ipairs(G.stack.states or {}) do
+    if state.screenId==configured then B.newGameReady=true; Events.emit("new-game-started", "{}") end
+   end
   end
  end
 end

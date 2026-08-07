@@ -1269,13 +1269,22 @@ function Voxel3D.beginDepthRestore()
   return true
 end
 
+-- Hoisted protected helpers: pcall targets allocated once at load instead of
+-- one closure per draw call (the interpreter path pays real GC for each).
+-- Method indexing stays inside the pcall boundary, so an invalidated mesh or
+-- shader still degrades to a skipped draw, never a frame abort.
+local function applyMeshTexture(mesh, texture) mesh:setTexture(texture) end
+local function sendMatrixRow(sh, name, matrix) sh:send(name, "row", matrix) end
+local function sendScalar(sh, name, value) sh:send(name, value) end
+local function drawMesh(mesh) love.graphics.draw(mesh) end
+local function sendModelAndDraw(shader, model, mesh)
+  shader:send("model", "row", model)
+  love.graphics.draw(mesh)
+end
+
 function Voxel3D.drawDepth(mesh, model)
   if not (depthRestoreActive and depthRestoreShader and mesh) then return false end
-  local shader = depthRestoreShader
-  return pcall(function()
-    shader:send("model", "row", model or IDENTITY)
-    love.graphics.draw(mesh)
-  end)
+  return pcall(sendModelAndDraw, depthRestoreShader, model or IDENTITY, mesh)
 end
 
 function Voxel3D.endDepthRestore()
@@ -1516,14 +1525,14 @@ function Voxel3D.draw(mesh, texture, model, pull, sunModel)
   -- sending a uniform to the other shader would go nowhere
   local sh = activeShader
   if not sh then return end
-  if texture and not pcall(function() mesh:setTexture(texture) end) then
+  if texture and not pcall(applyMeshTexture, mesh, texture) then
     return false
   end
   -- LOVE defaults matrix uniforms to column-major; Mat4 is row-major
-  pcall(function() sh:send("model", "row", model or IDENTITY) end)
-  pcall(function() sh:send("sunModel", "row", sunModel or model or IDENTITY) end)
-  pcall(function() sh:send("pull", pull or 0) end)
-  if not pcall(function() love.graphics.draw(mesh) end) then return false end
+  pcall(sendMatrixRow, sh, "model", model or IDENTITY)
+  pcall(sendMatrixRow, sh, "sunModel", sunModel or model or IDENTITY)
+  pcall(sendScalar, sh, "pull", pull or 0)
+  if not pcall(drawMesh, mesh) then return false end
   return true
 end
 

@@ -68,7 +68,9 @@ describe('Layer 3 browser runtime source contracts', () => {
     expect(main).toMatch(/love\.update\(dt\)/);
     expect(main).toMatch(/love\.draw\(\)/);
     expect(main).toMatch(/love\.graphics\.present\(\)/);
-    expect(main).toMatch(/love\.timer\.sleep\(0\.001\)/);
+    // The browser event loop paces the iteration; an emscripten main-thread
+    // sleep busy-waits and pushed tight frames past their vsync slot.
+    expect(main).not.toMatch(/love\.timer\.sleep\(/);
     expect(main).not.toContain('FrameCap.current');
   });
 

@@ -17,6 +17,7 @@ function love.run()
  if love.load then love.load(love.arg.parseGameArguments(arg),arg) end
  if love.timer then love.timer.step() end
  local dt=0
+ local stats={}
  return function()
   if love.event then
    love.event.pump()
@@ -27,13 +28,23 @@ function love.run()
    end
   end
   if love.timer then dt=love.timer.step() end
+  local clock=love.timer and love.timer.getTime
+  local t0=clock and clock() or 0
   if love.update then love.update(dt) end
+  local t1=clock and clock() or t0
+  local t2,t3,drawCalls,canvasSwitches=t1,t1,0,0
   if love.graphics and love.graphics.isActive() then
    love.graphics.origin()
    love.graphics.clear(love.graphics.getBackgroundColor())
    if love.draw then love.draw() end
+   t2=clock and clock() or t1
+   love.graphics.getStats(stats)
+   drawCalls=stats.drawcalls or 0; canvasSwitches=stats.canvasswitches or 0
    love.graphics.present()
+   t3=clock and clock() or t2
   end
-  if love.timer and love.timer.sleep then love.timer.sleep(0.001) end
+  B.frameSample(dt,(t1-t0)*1000,(t2-t1)*1000,(t3-t2)*1000,drawCalls,canvasSwitches,0)
+  -- No sleep: the browser event loop already paces this callback. A 1ms
+  -- sleep here pushed tight iterations past their vsync slot.
  end
 end

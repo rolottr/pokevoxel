@@ -2,7 +2,7 @@ import { RomSelectionController } from '../import/RomSelectionController';
 import { romValidationMessage, type RomVersion } from '../import/romValidation';
 import { LoveRuntimeHost } from '../runtime/LoveRuntimeHost';
 import type { AudioRendererPreference, LoveRuntimeAdapter } from '../runtime/LoveRuntimeAdapter';
-import type { AudioProbe, BattleProbe, BattleReturnProbe, FirstPersonParityProbe, FirstPersonProbe, FirstPersonReleaseProbe, PersistenceSummary, RuntimeEvent, VoxelOcclusionProbe, VoxelProbe, WaterProbe } from '../runtime/runtimeEvents';
+import type { AudioProbe, BattleProbe, BattleReturnProbe, FirstPersonParityProbe, FirstPersonProbe, FirstPersonReleaseProbe, FrameProbe, PersistenceSummary, RuntimeEvent, VoxelOcclusionProbe, VoxelProbe, WaterProbe } from '../runtime/runtimeEvents';
 import type { PersistenceErrorCode, PersistenceStatus } from '../persistence/DurableGenerationStore';
 import { createGameControls } from '../ui/GameControls';
 import { createRuntimeScreen } from '../ui/RuntimeScreen';
@@ -35,7 +35,7 @@ export function transitionAppState(state: AppState, event: TransitionEvent): App
   }
 }
 
-export type ShellModel = { state: AppState; gameVersion?: RomVersion; error?: string; errorCode?: string; progress?: number; audioState?: string; audioResumeFailed?: boolean; cacheRestored?: boolean; gameStarted?: boolean; titleReady?: boolean; newGameStarted?: boolean; overworldReady?: boolean; runtimePrepared?: boolean; importPhase?: ImportPhase; persistenceStatus?: PersistenceStatus; persistenceErrorCode?: PersistenceErrorCode; persistenceRestored?: boolean; persistenceCommittedSummary?: PersistenceSummary; persistenceRestoredSummary?: PersistenceSummary; persistenceResumedSummary?: PersistenceSummary; audioProbe?: AudioProbe; voxelProbe?: VoxelProbe; voxelOcclusionProbe?: VoxelOcclusionProbe; waterProbe?: WaterProbe; battleProbe?: BattleProbe; battleReturnProbe?: BattleReturnProbe; firstPersonProbe?: FirstPersonProbe; firstPersonReleaseProbe?: FirstPersonReleaseProbe; firstPersonParityProbe?: FirstPersonParityProbe; overworldInputReady?: boolean; battleInputPhase?: 'none' | 'menu' | 'move' | 'messages'; storageWarning?: string };
+export type ShellModel = { state: AppState; gameVersion?: RomVersion; error?: string; errorCode?: string; progress?: number; audioState?: string; audioResumeFailed?: boolean; cacheRestored?: boolean; gameStarted?: boolean; titleReady?: boolean; newGameStarted?: boolean; overworldReady?: boolean; runtimePrepared?: boolean; importPhase?: ImportPhase; persistenceStatus?: PersistenceStatus; persistenceErrorCode?: PersistenceErrorCode; persistenceRestored?: boolean; persistenceCommittedSummary?: PersistenceSummary; persistenceRestoredSummary?: PersistenceSummary; persistenceResumedSummary?: PersistenceSummary; audioProbe?: AudioProbe; frameProbe?: FrameProbe; voxelProbe?: VoxelProbe; voxelOcclusionProbe?: VoxelOcclusionProbe; waterProbe?: WaterProbe; battleProbe?: BattleProbe; battleReturnProbe?: BattleReturnProbe; firstPersonProbe?: FirstPersonProbe; firstPersonReleaseProbe?: FirstPersonReleaseProbe; firstPersonParityProbe?: FirstPersonParityProbe; overworldInputReady?: boolean; battleInputPhase?: 'none' | 'menu' | 'move' | 'messages'; storageWarning?: string };
 type ImportPhase = 'signal-consumed' | 'rom-read' | 'manifest-parsed' | 'session-entered';
 const IMPORT_PHASES = new Set<ImportPhase>(['signal-consumed', 'rom-read', 'manifest-parsed', 'session-entered']);
 function runtimeVersion(value: unknown): RomVersion | undefined { return value === 'red' || value === 'blue' || value === 'yellow' ? value : undefined; }
@@ -199,6 +199,7 @@ export class PokevoxelApp {
       this.render(); return;
     }
     if (event.type === 'audio-probe') { this.model = { ...this.model, audioProbe: event.payload as AudioProbe }; this.render(); return; }
+    if (event.type === 'frame-probe') { this.model = { ...this.model, frameProbe: event.payload as FrameProbe }; this.render(); return; }
     if (event.type === 'voxel-ready') { this.model = { ...this.model, voxelProbe: event.payload as VoxelProbe }; this.render(); return; }
     if (event.type === 'voxel-occlusion-probe') { this.model = { ...this.model, voxelOcclusionProbe: event.payload as VoxelOcclusionProbe }; this.render(); return; }
     if (event.type === 'water-ready') { this.model = { ...this.model, waterProbe: event.payload as WaterProbe }; this.render(); return; }
