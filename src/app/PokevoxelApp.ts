@@ -4,6 +4,7 @@ import { LoveRuntimeHost } from '../runtime/LoveRuntimeHost';
 import type { AudioRendererPreference, LoveRuntimeAdapter } from '../runtime/LoveRuntimeAdapter';
 import type { AudioProbe, BattleProbe, BattleReturnProbe, FirstPersonParityProbe, FirstPersonProbe, FirstPersonReleaseProbe, FrameProbe, PersistenceSummary, RuntimeEvent, VoxelOcclusionProbe, VoxelProbe, WaterProbe } from '../runtime/runtimeEvents';
 import type { PersistenceErrorCode, PersistenceStatus } from '../persistence/DurableGenerationStore';
+import { createFrameRateOverlay, updateFrameRateOverlay } from '../ui/FrameRateOverlay';
 import { createGameControls } from '../ui/GameControls';
 import { createRuntimeScreen } from '../ui/RuntimeScreen';
 import { renderWelcomeScreen } from '../ui/WelcomeScreen';
@@ -89,6 +90,7 @@ export class PokevoxelApp {
   private readonly romSelection = new RomSelectionController(this.host);
   private readonly runtime = createRuntimeScreen();
   private readonly gameControls = createGameControls(this.runtime.canvas);
+  private readonly frameRateOverlay = createFrameRateOverlay();
   private readonly controls = document.createElement('div');
   private initialBoot?: number;
   private cacheRestart?: Promise<void>;
@@ -98,10 +100,20 @@ export class PokevoxelApp {
   private clearingCache = false;
   private audioRenderer: AudioRendererPreference = 'pokeaudio-hd';
   private audioRendererOverride = false;
+  private frameRateOverlayVisible = false;
+  private readonly onFrameRateToggle = (event: KeyboardEvent): void => {
+    if (event.key.toLowerCase() !== 'f8' || event.repeat || this.model.state !== 'playing') return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    this.frameRateOverlayVisible = !this.frameRateOverlayVisible;
+    updateFrameRateOverlay(this.frameRateOverlay, this.model.frameProbe, this.frameRateOverlayVisible);
+    this.runtime.canvas.focus({ preventScroll: true });
+  };
 
   public constructor(private readonly root: HTMLElement) {
     this.controls.className = 'runtime-controls';
-    this.root.replaceChildren(this.runtime.element, this.gameControls, this.controls);
+    this.root.replaceChildren(this.runtime.element, this.gameControls, this.frameRateOverlay, this.controls);
+    window.addEventListener('keydown', this.onFrameRateToggle, true);
     this.render();
     this.scheduleInitialRuntime(); // One runtime starts once to populate IDBFS and restore a cache, if present.
   }
@@ -317,6 +329,8 @@ export class PokevoxelApp {
   private render(): void {
     this.root.dataset.shellState = this.model.state; this.root.dataset.testid = 'pokevoxel-app'; this.runtime.element.dataset.state = this.model.state;
     this.gameControls.hidden = this.model.state !== 'playing';
+    if (this.model.state !== 'playing') this.frameRateOverlayVisible = false;
+    updateFrameRateOverlay(this.frameRateOverlay, this.model.frameProbe, this.frameRateOverlayVisible);
     if (this.model.state !== 'playing') this.gameControls.querySelector('details')?.removeAttribute('open');
     if (this.model.runtimePrepared) this.runtime.element.dataset.runtimePrepared = 'true'; else delete this.runtime.element.dataset.runtimePrepared;
     if (this.model.importPhase) this.runtime.element.dataset.importPhase = this.model.importPhase; else delete this.runtime.element.dataset.importPhase;

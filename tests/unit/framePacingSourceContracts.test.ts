@@ -41,9 +41,14 @@ describe('frame pacing instrumentation contracts', () => {
     expect(scene).toContain('perf.shadowMs = perf.shadowMs + (love.timer.getTime() - shadowStart)');
   });
 
-  it('stores the parsed frame probe on the shell model and renders its hidden marker', () => {
+  it('stores the parsed frame probe and wires the visible F8 monitor without changing the frame loop', () => {
     const app = text('src', 'app', 'PokevoxelApp.ts');
     expect(app).toContain("if (event.type === 'frame-probe') { this.model = { ...this.model, frameProbe: event.payload as FrameProbe }; this.render(); return; }");
+    expect(app).toContain("event.key.toLowerCase() !== 'f8'");
+    expect(app).toContain('updateFrameRateOverlay(this.frameRateOverlay, this.model.frameProbe, this.frameRateOverlayVisible)');
+    const overlay = text('src', 'ui', 'FrameRateOverlay.ts');
+    expect(overlay).toContain("overlay.dataset.testid = 'fps-overlay'");
+    expect(overlay).toContain('overlay.hidden = !visible');
     const welcome = text('src', 'ui', 'WelcomeScreen.ts');
     expect(welcome).toContain("probe.dataset.testid = 'frame-probe'");
   });

@@ -64,6 +64,36 @@ h1 span { color: #d34c3b; }
 .runtime-stage[data-state="playing"] .runtime-canvas { width: min(100vw, calc(133.333vh - var(--runtime-width-offset)), 1024px); opacity: 1; border: 0; background: #000; }
 .runtime-handoff { min-height: 0; padding: 0; pointer-events: none; }
 .persistence-indicator { position: fixed; right: 1rem; bottom: 1rem; z-index: 2; margin: 0; padding: .45rem .7rem; color: #fff8d9; background: rgb(25 40 70 / .9); border: 1px solid #f4da62; font-size: .78rem; font-weight: 800; }
+.fps-overlay {
+  --fps-accent: #8fa3b7;
+  position: fixed;
+  top: 4.65rem;
+  right: 1rem;
+  z-index: 3;
+  min-width: 10.5rem;
+  padding: .48rem .62rem;
+  display: flex;
+  gap: .65rem;
+  align-items: center;
+  color: #fff8d9;
+  background: rgb(16 26 44 / .92);
+  border: 1px solid rgb(244 218 98 / .78);
+  border-left: 4px solid var(--fps-accent);
+  box-shadow: 3px 3px 0 rgb(211 76 59 / .68), 0 8px 20px rgb(0 0 0 / .35);
+  backdrop-filter: blur(10px);
+  pointer-events: none;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.fps-overlay[hidden] { display: none; }
+.fps-overlay[data-tone="smooth"] { --fps-accent: #70d28a; }
+.fps-overlay[data-tone="warning"] { --fps-accent: #f4da62; }
+.fps-overlay[data-tone="slow"] { --fps-accent: #ef6655; }
+.fps-overlay__headline { margin: 0; display: grid; justify-items: center; line-height: 1; }
+.fps-overlay__headline strong { color: var(--fps-accent); font-size: 1.45rem; font-variant-numeric: tabular-nums; }
+.fps-overlay__headline span { margin-top: .13rem; color: #f4da62; font-size: .55rem; font-weight: 900; letter-spacing: .12em; }
+.fps-overlay__details { display: grid; gap: .18rem; flex: 1; }
+.fps-overlay__metric { margin: 0; display: flex; gap: .6rem; justify-content: space-between; color: #bfc9d7; font-size: .57rem; font-weight: 800; letter-spacing: .06em; }
+.fps-overlay__metric strong { color: #fff8d9; font-size: .65rem; font-variant-numeric: tabular-nums; letter-spacing: 0; }
 .import-progress { width: min(100%, 22rem); height: 1rem; margin: 0 1rem 0 0; vertical-align: middle; accent-color: #31543e; }
 .quiet-button { margin-left: .8rem; color: #254165; background: #fff8d9; box-shadow: none; }
 
@@ -110,6 +140,7 @@ kbd { min-width: 1.5rem; padding: .15rem .32rem; color: #192846; background: #ff
 
 @media (max-width: 760px) {
   .runtime-stage[data-state="playing"] { --runtime-top: 4.1rem; --runtime-width-offset: 5.467rem; }
+  .fps-overlay { top: 4.25rem; right: .55rem; }
   .game-controls { left: .55rem; right: .55rem; width: auto; min-height: 2.9rem; justify-content: space-between; transform: none; }
   .game-controls__label { border-right: 0; }
   .quick-controls { display: none; }

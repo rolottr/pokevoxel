@@ -29,6 +29,7 @@ describe('release controls', () => {
     expect(item('World curve')?.keys).toEqual(['7']);
     expect(item('Staged 3D battles')?.keys).toEqual(['8']);
     expect(item('Water rendering')?.keys).toEqual(['9']);
+    expect(item('FPS monitor')?.keys).toEqual(['F8']);
     expect(item('Free look')?.keys).toEqual(['Mouse', 'Right stick', '1-finger drag']);
     expect(item('Camera zoom')?.keys).toEqual(['Q', 'E', 'Wheel', 'Stick clicks', 'Pinch']);
     expect(item('FULL preset')?.description).toMatch(/options only/i);
